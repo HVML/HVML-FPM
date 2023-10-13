@@ -1,0 +1,19 @@
+/**
+ * @file config.h
+ * @author Vincent Wei (https://github.com/VincentWei)
+ * @date 2023/09/10
+ * @brief The configuration header file of HVMLFcgi.
+ *
+ * Copyright (C) 2023 FMSoft <https://www.fmsoft.cn>
+ */
+
+#if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H && defined(BUILDING_WITH_CMAKE)
+#include "cmakeconfig.h"
+#endif
+
+#include <wtf/Platform.h>
+#include <wtf/ExportMacros.h>
+
+#ifndef PACKAGE_VERSION
+#define PACKAGE_VERSION "@PROJECT_VERSION@"
+#endif

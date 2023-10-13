@@ -21,13 +21,13 @@ add_definitions(-DNOCRYPT)
 
 # Override headers directories
 set(WTF_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/WTF/Headers)
-set(FooBar_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/FooBar/Headers)
-set(FooBar_PRIVATE_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/FooBar/PrivateHeaders)
+set(HVMLFcgi_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/HVMLFcgi/Headers)
+set(HVMLFcgi_PRIVATE_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/HVMLFcgi/PrivateHeaders)
 
 # Override derived sources directories
 set(WTF_DERIVED_SOURCES_DIR ${CMAKE_BINARY_DIR}/WTF/DerivedSources)
-set(FooBar_DERIVED_SOURCES_DIR ${CMAKE_BINARY_DIR}/FooBar/DerivedSources)
+set(HVMLFcgi_DERIVED_SOURCES_DIR ${CMAKE_BINARY_DIR}/HVMLFcgi/DerivedSources)
 
 # Override library types
-set(FooBar_LIBRARY_TYPE OBJECT)
-set(FooBarTestSupport_LIBRARY_TYPE OBJECT)
+set(HVMLFcgi_LIBRARY_TYPE OBJECT)
+set(HVMLFcgiTestSupport_LIBRARY_TYPE OBJECT)

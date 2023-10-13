@@ -10,7 +10,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-project(FooBar C CXX)
+project(HVMLFcgi C CXX)
 
 if (NOT CMAKE_BUILD_TYPE)
     message(WARNING "No CMAKE_BUILD_TYPE value specified, defaulting to RelWithDebInfo.")
@@ -29,14 +29,14 @@ set(ALL_PORTS
     Mac
     Windows
 )
-set(PORT "NOPORT" CACHE STRING "choose which FooBar port to build (one of ${ALL_PORTS})")
+set(PORT "NOPORT" CACHE STRING "choose which HVMLFcgi port to build (one of ${ALL_PORTS})")
 
 list(FIND ALL_PORTS ${PORT} RET)
 if (${RET} EQUAL -1)
-    message(FATAL_ERROR "Please choose which FooBar port to build (one of ${ALL_PORTS})")
+    message(FATAL_ERROR "Please choose which HVMLFcgi port to build (one of ${ALL_PORTS})")
 endif ()
 
-string(TOLOWER ${PORT} FOOBAR_PORT_DIR)
+string(TOLOWER ${PORT} HVMLFCGI_PORT_DIR)
 
 # -----------------------------------------------------------------------------
 # Determine the compiler
@@ -47,7 +47,7 @@ endif ()
 
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
     if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "7.3.0")
-        message(FATAL_ERROR "GCC 7.3 or newer is required to build FooBar. Use a newer GCC version or Clang.")
+        message(FATAL_ERROR "GCC 7.3 or newer is required to build HVMLFcgi. Use a newer GCC version or Clang.")
     endif ()
 endif ()
 
@@ -121,11 +121,11 @@ endif ()
 # -----------------------------------------------------------------------------
 # Default library types
 # -----------------------------------------------------------------------------
-# By default, only the highest-level libraries, FooBar, is
+# By default, only the highest-level libraries, HVMLFcgi, is
 # shared, because properly building shared libraries that depend on each other
 # can be tricky. Override these in Options*.cmake for your port as needed.
 set(WTF_LIBRARY_TYPE STATIC)
-set(FooBar_LIBRARY_TYPE SHARED)
+set(HVMLFcgi_LIBRARY_TYPE SHARED)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 
@@ -135,19 +135,19 @@ set(CMAKE_POSITION_INDEPENDENT_CODE True)
 include(GlobalCommon)
 
 SET_PROJECT_VERSION(0 0 1)
-set(FOOBAR_API_VERSION 0.0)
+set(HVMLFCGI_API_VERSION 0.0)
 
 add_subdirectory(source)
 
 # -----------------------------------------------------------------------------
 # Print the features list last, for maximum visibility.
 # -----------------------------------------------------------------------------
-PRINT_FOOBAR_OPTIONS()
+PRINT_HVMLFCGI_OPTIONS()
 
 # Packing stuff
 set(CPACK_PACKAGE_VENDOR "FMSoft")
 set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "FooBar: a project for HybridOS.")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "HVMLFcgi: a project for HybridOS.")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}")
 set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_IGNORE_FILES
