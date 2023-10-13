@@ -8,6 +8,7 @@ CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(HVMLFCGI 0 0 0)
 # CMAKE_INSTALL_* variables that are populated by the GNUInstallDirs macro.
 set(LIB_INSTALL_DIR "${CMAKE_INSTALL_FULL_LIBDIR}" CACHE PATH "Absolute path to library installation directory")
 set(EXEC_INSTALL_DIR "${CMAKE_INSTALL_FULL_BINDIR}" CACHE PATH "Absolute path to executable installation directory")
+set(SYSEXEC_INSTALL_DIR "${CMAKE_INSTALL_FULL_SBINDIR}" CACHE PATH "Absolute path to system executable installation directory")
 set(LIBEXEC_INSTALL_DIR "${CMAKE_INSTALL_FULL_LIBEXECDIR}/hvmlfcgi" CACHE PATH "Absolute path to install executables executed by the library")
 set(HEADER_INSTALL_DIR "${CMAKE_INSTALL_INCLUDEDIR}" CACHE PATH "Absolute path to header installation directory")
 set(HVMLFCGI_HEADER_INSTALL_DIR "${CMAKE_INSTALL_INCLUDEDIR}/hvmlfcgi" CACHE PATH "Absolute path to HVMLFcgi header installation directory")

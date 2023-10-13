@@ -109,6 +109,7 @@ endif ()
 if (NOT PORT STREQUAL "GTK" AND NOT PORT STREQUAL "WPE")
     set(LIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib" CACHE PATH "Absolute path to library installation directory")
     set(EXEC_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/bin" CACHE PATH "Absolute path to executable installation directory")
+    set(SYSEXEC_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/sbin" CACHE PATH "Absolute path to system executable installation directory")
     set(LIBEXEC_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/bin" CACHE PATH "Absolute path to install executables executed by the library")
 endif ()
 
@@ -164,3 +165,4 @@ if (HAVE_INT128_VALUE)
   SET_AND_EXPOSE_TO_BUILD(HAVE_INT128_T INT128_VALUE)
 endif ()
 
+find_package(PurC 0.9.16 REQUIRED)

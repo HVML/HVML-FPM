@@ -17,13 +17,14 @@ list(APPEND hvmlfcgi_SOURCES
 )
 
 set(hvmlfcgi_LIBRARIES
+    PurC::PurC
 )
 
 set_target_properties(hvmlfcgi PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sbin"
 )
 
 HVMLFCGI_COMPUTE_SOURCES(hvmlfcgi)
 HVMLFCGI_FRAMEWORK(hvmlfcgi)
 
-install(TARGETS hvmlfcgi DESTINATION "${EXEC_INSTALL_DIR}/")
+install(TARGETS hvmlfcgi DESTINATION "${SYSEXEC_INSTALL_DIR}/")
