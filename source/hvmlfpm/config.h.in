@@ -2,7 +2,7 @@
  * @file config.h
  * @author Vincent Wei (https://github.com/VincentWei)
  * @date 2023/09/10
- * @brief The configuration header file of HVMLFcgi.
+ * @brief The configuration header file of HvmlFpm.
  *
  * Copyright (C) 2023 FMSoft <https://www.fmsoft.cn>
  */

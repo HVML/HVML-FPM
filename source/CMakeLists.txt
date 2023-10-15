@@ -1,3 +1,3 @@
 add_subdirectory(wtf)
-add_subdirectory(hvmlfcgi)
+add_subdirectory(hvmlfpm)
 

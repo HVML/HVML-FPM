@@ -1,10 +1,10 @@
 # -----------------------------------------------------------------------------
 # This file is included individually from various subdirectories (JSC, WTF,
-# XCore, XKit) in order to allow scripts to build only part of HVMLFCGI.
+# XCore, XKit) in order to allow scripts to build only part of HVMLFPM.
 # We want to run this file only once.
 # -----------------------------------------------------------------------------
-if (NOT HAS_RUN_HVMLFCGI_COMMON)
-    set(HAS_RUN_HVMLFCGI_COMMON TRUE)
+if (NOT HAS_RUN_HVMLFPM_COMMON)
+    set(HAS_RUN_HVMLFPM_COMMON TRUE)
 
     # -----------------------------------------------------------------------------
     # Find common packages (used by all ports)

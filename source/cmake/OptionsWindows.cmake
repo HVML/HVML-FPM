@@ -21,13 +21,13 @@ add_definitions(-DNOCRYPT)
 
 # Override headers directories
 set(WTF_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/WTF/Headers)
-set(HVMLFcgi_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/HVMLFcgi/Headers)
-set(HVMLFcgi_PRIVATE_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/HVMLFcgi/PrivateHeaders)
+set(HvmlFpm_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/HvmlFpm/Headers)
+set(HvmlFpm_PRIVATE_FRAMEWORK_HEADERS_DIR ${CMAKE_BINARY_DIR}/HvmlFpm/PrivateHeaders)
 
 # Override derived sources directories
 set(WTF_DERIVED_SOURCES_DIR ${CMAKE_BINARY_DIR}/WTF/DerivedSources)
-set(HVMLFcgi_DERIVED_SOURCES_DIR ${CMAKE_BINARY_DIR}/HVMLFcgi/DerivedSources)
+set(HvmlFpm_DERIVED_SOURCES_DIR ${CMAKE_BINARY_DIR}/HvmlFpm/DerivedSources)
 
 # Override library types
-set(HVMLFcgi_LIBRARY_TYPE OBJECT)
-set(HVMLFcgiTestSupport_LIBRARY_TYPE OBJECT)
+set(HvmlFpm_LIBRARY_TYPE OBJECT)
+set(HvmlFpmTestSupport_LIBRARY_TYPE OBJECT)

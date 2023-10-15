@@ -1,22 +1,22 @@
 # The static runtime used to be required for AppleWin due to
-# HVMLFcgiSystemInterface.lib being compiled with a static runtime. That library
+# HvmlFpmSystemInterface.lib being compiled with a static runtime. That library
 # is no longer used, but we keep building with static runtime for backward
 # compatibility. But if someone decides that it's OK to require existing
 # projects to build with the runtime DLLs, that's now technically possible.
 set(MSVC_STATIC_RUNTIME ON)
 
 if (DEFINED ENV{AppleApplicationSupportSDK})
-    file(TO_CMAKE_PATH "$ENV{AppleApplicationSupportSDK}/AppleInternal" HVMLFCGI_LIBRARIES_DIR)
-    set(HVMLFCGI_LIBRARIES_INCLUDE_DIR "${HVMLFCGI_LIBRARIES_DIR}/include")
-    include_directories(${HVMLFCGI_LIBRARIES_INCLUDE_DIR})
+    file(TO_CMAKE_PATH "$ENV{AppleApplicationSupportSDK}/AppleInternal" HVMLFPM_LIBRARIES_DIR)
+    set(HVMLFPM_LIBRARIES_INCLUDE_DIR "${HVMLFPM_LIBRARIES_DIR}/include")
+    include_directories(${HVMLFPM_LIBRARIES_INCLUDE_DIR})
     set(APPLE_BUILD 1)
 endif ()
 
-if (NOT HVMLFCGI_LIBRARIES_DIR)
-    if (DEFINED ENV{HVMLFCGI_LIBRARIES})
-        file(TO_CMAKE_PATH "$ENV{HVMLFCGI_LIBRARIES}" HVMLFCGI_LIBRARIES_DIR)
+if (NOT HVMLFPM_LIBRARIES_DIR)
+    if (DEFINED ENV{HVMLFPM_LIBRARIES})
+        file(TO_CMAKE_PATH "$ENV{HVMLFPM_LIBRARIES}" HVMLFPM_LIBRARIES_DIR)
     else ()
-        file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/HVMLFcgiLibraries/win" HVMLFCGI_LIBRARIES_DIR)
+        file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/HvmlFpmLibraries/win" HVMLFPM_LIBRARIES_DIR)
     endif ()
 endif ()
 
@@ -47,26 +47,26 @@ else ()
     SET_AND_EXPOSE_TO_BUILD(USE_CA ON)
     SET_AND_EXPOSE_TO_BUILD(USE_CG ON)
 
-    set(CMAKE_REQUIRED_INCLUDES ${HVMLFCGI_LIBRARIES_INCLUDE_DIR})
+    set(CMAKE_REQUIRED_INCLUDES ${HVMLFPM_LIBRARIES_INCLUDE_DIR})
     set(CMAKE_REQUIRED_LIBRARIES
-        "${HVMLFCGI_LIBRARIES_LINK_DIR}/CoreFoundation${DEBUG_SUFFIX}.lib"
-        "${HVMLFCGI_LIBRARIES_LINK_DIR}/AVFoundationCF${DEBUG_SUFFIX}.lib"
-        "${HVMLFCGI_LIBRARIES_LINK_DIR}/QuartzCore${DEBUG_SUFFIX}.lib"
-        "${HVMLFCGI_LIBRARIES_LINK_DIR}/libdispatch${DEBUG_SUFFIX}.lib"
+        "${HVMLFPM_LIBRARIES_LINK_DIR}/CoreFoundation${DEBUG_SUFFIX}.lib"
+        "${HVMLFPM_LIBRARIES_LINK_DIR}/AVFoundationCF${DEBUG_SUFFIX}.lib"
+        "${HVMLFPM_LIBRARIES_LINK_DIR}/QuartzCore${DEBUG_SUFFIX}.lib"
+        "${HVMLFPM_LIBRARIES_LINK_DIR}/libdispatch${DEBUG_SUFFIX}.lib"
     )
 
-    HVMLFCGI_CHECK_HAVE_INCLUDE(HAVE_AVCF AVFoundationCF/AVCFBase.h)
+    HVMLFPM_CHECK_HAVE_INCLUDE(HAVE_AVCF AVFoundationCF/AVCFBase.h)
 
     if (HAVE_AVCF)
          SET_AND_EXPOSE_TO_BUILD(USE_AVFOUNDATION ON)
     endif ()
 
-    HVMLFCGI_CHECK_HAVE_SYMBOL(HAVE_AVCF_LEGIBLE_OUTPUT AVCFPlayerItemLegibleOutputSetCallbacks "TargetConditionals.h;dispatch/dispatch.h;AVFoundationCF/AVFoundationCF.h;AVFoundationCF/AVCFPlayerItemLegibleOutput.h")
-    HVMLFCGI_CHECK_HAVE_SYMBOL(HAVE_AVFOUNDATION_LOADER_DELEGATE AVCFAssetResourceLoaderSetCallbacks "TargetConditionals.h;dispatch/dispatch.h;AVFoundationCF/AVFoundationCF.h")
-    HVMLFCGI_CHECK_HAVE_SYMBOL(HAVE_AVCFURL_PLAYABLE_MIMETYPE AVCFURLAssetIsPlayableExtendedMIMEType "TargetConditionals.h;dispatch/dispatch.h;AVFoundationCF/AVFoundationCF.h")
+    HVMLFPM_CHECK_HAVE_SYMBOL(HAVE_AVCF_LEGIBLE_OUTPUT AVCFPlayerItemLegibleOutputSetCallbacks "TargetConditionals.h;dispatch/dispatch.h;AVFoundationCF/AVFoundationCF.h;AVFoundationCF/AVCFPlayerItemLegibleOutput.h")
+    HVMLFPM_CHECK_HAVE_SYMBOL(HAVE_AVFOUNDATION_LOADER_DELEGATE AVCFAssetResourceLoaderSetCallbacks "TargetConditionals.h;dispatch/dispatch.h;AVFoundationCF/AVFoundationCF.h")
+    HVMLFPM_CHECK_HAVE_SYMBOL(HAVE_AVCFURL_PLAYABLE_MIMETYPE AVCFURLAssetIsPlayableExtendedMIMEType "TargetConditionals.h;dispatch/dispatch.h;AVFoundationCF/AVFoundationCF.h")
 
     # CMake cannot identify an enum through a symbol check so a source file is required
-    HVMLFCGI_CHECK_SOURCE_COMPILES(HAVE_AVCFPLAYERITEM_CALLBACK_VERSION_2 "
+    HVMLFPM_CHECK_SOURCE_COMPILES(HAVE_AVCFPLAYERITEM_CALLBACK_VERSION_2 "
     #include <AVFoundationCF/AVFoundationCF.h>
     #include <AVFoundationCF/AVCFPlayerItemLegibleOutput.h>
     #include <CoreFoundation/CoreFoundation.h>
@@ -87,7 +87,7 @@ else ()
         SET_AND_EXPOSE_TO_BUILD(HAVE_MEDIA_ACCESSIBILITY_FRAMEWORK ON)
     endif ()
 
-    HVMLFCGI_CHECK_HAVE_SYMBOL(HAVE_CACFLAYER_SETCONTENTSSCALE CACFLayerSetContentsScale QuartzCore/CoreAnimationCF.h)
+    HVMLFPM_CHECK_HAVE_SYMBOL(HAVE_CACFLAYER_SETCONTENTSSCALE CACFLayerSetContentsScale QuartzCore/CoreAnimationCF.h)
 endif ()
 
 # Warnings as errors (ignore narrowing conversions)

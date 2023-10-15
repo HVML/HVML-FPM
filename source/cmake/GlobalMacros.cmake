@@ -1,8 +1,8 @@
 # This file is for macros that are used by multiple projects. If your macro is
 # exclusively needed in only one subdirectory of Source (e.g. only needed by
-# HVMLFcgi), then put it there instead.
+# HvmlFpm), then put it there instead.
 
-macro(HVMLFCGI_COMPUTE_SOURCES _framework)
+macro(HVMLFPM_COMPUTE_SOURCES _framework)
     set(_derivedSourcesPath ${${_framework}_DERIVED_SOURCES_DIR})
 
     foreach (_sourcesListFile IN LISTS ${_framework}_UNIFIED_SOURCE_LIST_FILES)
@@ -64,7 +64,7 @@ macro(HVMLFCGI_COMPUTE_SOURCES _framework)
     endif ()
 endmacro()
 
-macro(HVMLFCGI_INCLUDE_CONFIG_FILES_IF_EXISTS)
+macro(HVMLFPM_INCLUDE_CONFIG_FILES_IF_EXISTS)
     set(_file ${CMAKE_CURRENT_SOURCE_DIR}/Platform${PORT}.cmake)
     if (EXISTS ${_file})
         message(STATUS "Using platform-specific CMakeLists: ${_file}")
@@ -75,7 +75,7 @@ macro(HVMLFCGI_INCLUDE_CONFIG_FILES_IF_EXISTS)
 endmacro()
 
 # Append the given dependencies to the source file
-macro(HVMLFCGI_ADD_SOURCE_DEPENDENCIES _source _deps)
+macro(HVMLFPM_ADD_SOURCE_DEPENDENCIES _source _deps)
     set(_tmp)
     get_source_file_property(_tmp ${_source} OBJECT_DEPENDS)
     if (NOT _tmp)
@@ -90,7 +90,7 @@ macro(HVMLFCGI_ADD_SOURCE_DEPENDENCIES _source _deps)
     unset(_tmp)
 endmacro()
 
-macro(HVMLFCGI_ADD_PRECOMPILED_HEADER _header _cpp _source)
+macro(HVMLFPM_ADD_PRECOMPILED_HEADER _header _cpp _source)
     if (MSVC)
         get_filename_component(PrecompiledBasename ${_cpp} NAME_WE)
         file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${_source}")
@@ -111,7 +111,7 @@ macro(HVMLFCGI_ADD_PRECOMPILED_HEADER _header _cpp _source)
             PROPERTIES COMPILE_FLAGS "/Yu\"${_header}\" /FI\"${_header}\" /Fp\"${PrecompiledBinary}\"")
 
         foreach (_src ${_sources})
-            HVMLFCGI_ADD_SOURCE_DEPENDENCIES(${_src} ${PrecompiledBinary})
+            HVMLFPM_ADD_SOURCE_DEPENDENCIES(${_src} ${PrecompiledBinary})
         endforeach ()
 
         list(APPEND ${_source} ${_cpp})
@@ -119,36 +119,36 @@ macro(HVMLFCGI_ADD_PRECOMPILED_HEADER _header _cpp _source)
     #FIXME: Add support for Xcode.
 endmacro()
 
-macro(HVMLFCGI_WRAP_SOURCELIST)
+macro(HVMLFPM_WRAP_SOURCELIST)
     foreach (_file ${ARGN})
         get_filename_component(_basename ${_file} NAME_WE)
         get_filename_component(_path ${_file} PATH)
 
-        if (NOT _file MATCHES "${DERIVED_SOURCES_HVMLFCGI_DIR}")
+        if (NOT _file MATCHES "${DERIVED_SOURCES_HVMLFPM_DIR}")
             string(REGEX REPLACE "/" "\\\\\\\\" _sourcegroup "${_path}")
             source_group("${_sourcegroup}" FILES ${_file})
         endif ()
     endforeach ()
 
-    source_group("DerivedSources" REGULAR_EXPRESSION "${DERIVED_SOURCES_HVMLFCGI_DIR}")
+    source_group("DerivedSources" REGULAR_EXPRESSION "${DERIVED_SOURCES_HVMLFPM_DIR}")
 endmacro()
 
-macro(HVMLFCGI_FRAMEWORK_DECLARE _target)
+macro(HVMLFPM_FRAMEWORK_DECLARE _target)
     # add_library() without any source files triggers CMake warning
     # Addition of dummy "source" file does not result in any changes in generated build.ninja file
     add_library(${_target} ${${_target}_LIBRARY_TYPE} "${CMAKE_BINARY_DIR}/cmakeconfig.h")
 endmacro()
 
-macro(HVMLFCGI_EXECUTABLE_DECLARE _target)
+macro(HVMLFPM_EXECUTABLE_DECLARE _target)
     add_executable(${_target} "${CMAKE_BINARY_DIR}/cmakeconfig.h")
 endmacro()
 
 # Private macro for setting the properties of a target.
-# Rather than just having _target like HVMLFCGI_FRAMEWORK and HVMLFCGI_EXECUTABLE the parameters are
+# Rather than just having _target like HVMLFPM_FRAMEWORK and HVMLFPM_EXECUTABLE the parameters are
 # split into _target_logical_name, which is used for variable expansion, and _target_cmake_name.
-# This is done to support HVMLFCGI_WRAP_EXECUTABLE which uses the _target_logical_name variables
+# This is done to support HVMLFPM_WRAP_EXECUTABLE which uses the _target_logical_name variables
 # but requires a different _target_cmake_name.
-macro(_HVMLFCGI_TARGET _target_logical_name _target_cmake_name)
+macro(_HVMLFPM_TARGET _target_logical_name _target_cmake_name)
     target_sources(${_target_cmake_name} PRIVATE
         ${${_target_logical_name}_HEADERS}
         ${${_target_logical_name}_SOURCES}
@@ -177,7 +177,7 @@ macro(_HVMLFCGI_TARGET _target_logical_name _target_cmake_name)
     endif ()
 endmacro()
 
-macro(_HVMLFCGI_TARGET_ANALYZE _target)
+macro(_HVMLFPM_TARGET_ANALYZE _target)
     if (ClangTidy_EXE)
         set(_clang_path_and_options
             ${ClangTidy_EXE}
@@ -207,9 +207,9 @@ macro(_HVMLFCGI_TARGET_ANALYZE _target)
     endif ()
 endmacro()
 
-macro(HVMLFCGI_FRAMEWORK _target)
-    _HVMLFCGI_TARGET(${_target} ${_target})
-    _HVMLFCGI_TARGET_ANALYZE(${_target})
+macro(HVMLFPM_FRAMEWORK _target)
+    _HVMLFPM_TARGET(${_target} ${_target})
+    _HVMLFPM_TARGET_ANALYZE(${_target})
 
     if (${_target}_OUTPUT_NAME)
         set_target_properties(${_target} PROPERTIES OUTPUT_NAME ${${_target}_OUTPUT_NAME})
@@ -230,18 +230,18 @@ macro(HVMLFCGI_FRAMEWORK _target)
     endif ()
 endmacro()
 
-# FIXME Move into HVMLFCGI_FRAMEWORK after all libraries are using this macro
-macro(HVMLFCGI_FRAMEWORK_TARGET _target)
+# FIXME Move into HVMLFPM_FRAMEWORK after all libraries are using this macro
+macro(HVMLFPM_FRAMEWORK_TARGET _target)
     add_library(${_target}_PostBuild INTERFACE)
     target_link_libraries(${_target}_PostBuild INTERFACE ${${_target}_INTERFACE_LIBRARIES})
     target_include_directories(${_target}_PostBuild INTERFACE ${${_target}_INTERFACE_INCLUDE_DIRECTORIES})
     add_dependencies(${_target}_PostBuild ${${_target}_INTERFACE_DEPENDENCIES})
-    add_library(HVMLFcgi::${_target} ALIAS ${_target}_PostBuild)
+    add_library(HvmlFpm::${_target} ALIAS ${_target}_PostBuild)
 endmacro()
 
-macro(HVMLFCGI_EXECUTABLE _target)
-    _HVMLFCGI_TARGET(${_target} ${_target})
-    _HVMLFCGI_TARGET_ANALYZE(${_target})
+macro(HVMLFPM_EXECUTABLE _target)
+    _HVMLFPM_TARGET(${_target} ${_target})
+    _HVMLFPM_TARGET_ANALYZE(${_target})
 
     if (${_target}_OUTPUT_NAME)
         set_target_properties(${_target} PROPERTIES OUTPUT_NAME ${${_target}_OUTPUT_NAME})
@@ -258,7 +258,7 @@ macro(HVMLFCGI_EXECUTABLE _target)
     endif ()
 endmacro()
 
-macro(HVMLFCGI_WRAP_EXECUTABLE _target)
+macro(HVMLFPM_WRAP_EXECUTABLE _target)
     set(oneValueArgs TARGET_NAME)
     set(multiValueArgs SOURCES LIBRARIES)
     cmake_parse_arguments(opt "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -271,8 +271,8 @@ macro(HVMLFCGI_WRAP_EXECUTABLE _target)
 
     add_library(${_wrapped_target_name} SHARED "${CMAKE_BINARY_DIR}/cmakeconfig.h")
 
-    _HVMLFCGI_TARGET(${_target} ${_wrapped_target_name})
-    _HVMLFCGI_TARGET_ANALYZE(${_wrapped_target_name})
+    _HVMLFPM_TARGET(${_target} ${_wrapped_target_name})
+    _HVMLFPM_TARGET_ANALYZE(${_wrapped_target_name})
 
     # Unset values
     unset(${_target}_HEADERS)
@@ -288,7 +288,7 @@ macro(HVMLFCGI_WRAP_EXECUTABLE _target)
     set(${_target}_DEPENDENCIES ${_wrapped_target_name})
 endmacro()
 
-macro(HVMLFCGI_CREATE_FORWARDING_HEADER _target_directory _file)
+macro(HVMLFPM_CREATE_FORWARDING_HEADER _target_directory _file)
     get_filename_component(_source_path "${CMAKE_SOURCE_DIR}/Source/" ABSOLUTE)
     get_filename_component(_absolute "${_file}" ABSOLUTE)
     get_filename_component(_name "${_file}" NAME)
@@ -296,7 +296,7 @@ macro(HVMLFCGI_CREATE_FORWARDING_HEADER _target_directory _file)
 
     # Try to make the path in the forwarding header relative to the Source directory
     # so that these forwarding headers are compatible with the ones created by the
-    # HVMLFcgi2 generate-forwarding-headers script.
+    # HvmlFpm2 generate-forwarding-headers script.
     string(REGEX REPLACE "${_source_path}/" "" _relative ${_absolute})
 
     set(_content "#include \"${_relative}\"\n")
@@ -310,7 +310,7 @@ macro(HVMLFCGI_CREATE_FORWARDING_HEADER _target_directory _file)
     endif ()
 endmacro()
 
-macro(HVMLFCGI_CREATE_FORWARDING_HEADERS _framework)
+macro(HVMLFPM_CREATE_FORWARDING_HEADERS _framework)
     # On Windows, we copy the entire contents of forwarding headers.
     if (NOT WIN32)
         set(_processing_directories 0)
@@ -336,16 +336,16 @@ macro(HVMLFCGI_CREATE_FORWARDING_HEADERS _framework)
             elseif (_processing_directories)
                 file(GLOB _files "${_currentArg}/*.h")
                 foreach (_file ${_files})
-                    HVMLFCGI_CREATE_FORWARDING_HEADER(${_target_directory} ${_file})
+                    HVMLFPM_CREATE_FORWARDING_HEADER(${_target_directory} ${_file})
                 endforeach ()
             elseif (_processing_files)
-                HVMLFCGI_CREATE_FORWARDING_HEADER(${_target_directory} ${_currentArg})
+                HVMLFPM_CREATE_FORWARDING_HEADER(${_target_directory} ${_currentArg})
             endif ()
         endforeach ()
     endif ()
 endmacro()
 
-function(HVMLFCGI_MAKE_FORWARDING_HEADERS framework)
+function(HVMLFPM_MAKE_FORWARDING_HEADERS framework)
     set(options FLATTENED)
     set(oneValueArgs DESTINATION TARGET_NAME)
     set(multiValueArgs DIRECTORIES FILES)
@@ -387,7 +387,7 @@ function(HVMLFCGI_MAKE_FORWARDING_HEADERS framework)
     add_dependencies(${framework} ${target_name})
 endfunction()
 
-function(HVMLFCGI_COPY_FILES target_name)
+function(HVMLFPM_COPY_FILES target_name)
     set(options FLATTENED)
     set(oneValueArgs DESTINATION)
     set(multiValueArgs FILES)
@@ -419,11 +419,11 @@ function(HVMLFCGI_COPY_FILES target_name)
 endfunction()
 
 # Helper macros for debugging CMake problems.
-macro(HVMLFCGI_DEBUG_DUMP_COMMANDS)
+macro(HVMLFPM_DEBUG_DUMP_COMMANDS)
     set(CMAKE_VERBOSE_MAKEFILE ON)
 endmacro()
 
-macro(HVMLFCGI_DEBUG_DUMP_VARIABLES)
+macro(HVMLFPM_DEBUG_DUMP_VARIABLES)
     set_cmake_property(_variableNames VARIABLES)
     foreach (_variableName ${_variableNames})
        message(STATUS "${_variableName}=${${_variableName}}")
@@ -432,7 +432,7 @@ endmacro()
 
 # Append the given flag to the target property.
 # Builds on top of get_target_property() and set_target_properties()
-macro(HVMLFCGI_ADD_TARGET_PROPERTIES _target _property _flags)
+macro(HVMLFPM_ADD_TARGET_PROPERTIES _target _property _flags)
     get_target_property(_tmp ${_target} ${_property})
     if (NOT _tmp)
         set(_tmp "")
@@ -446,7 +446,7 @@ macro(HVMLFCGI_ADD_TARGET_PROPERTIES _target _property _flags)
     unset(_tmp)
 endmacro()
 
-macro(HVMLFCGI_POPULATE_LIBRARY_VERSION library_name)
+macro(HVMLFPM_POPULATE_LIBRARY_VERSION library_name)
     if (NOT DEFINED ${library_name}_VERSION_MAJOR)
         set(${library_name}_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
     endif ()
@@ -461,7 +461,7 @@ macro(HVMLFCGI_POPULATE_LIBRARY_VERSION library_name)
     endif ()
 endmacro()
 
-macro(HVMLFCGI_CREATE_SYMLINK target src dest)
+macro(HVMLFPM_CREATE_SYMLINK target src dest)
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND ln -sf ${src} ${dest}
         DEPENDS ${dest}
