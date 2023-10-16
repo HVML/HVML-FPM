@@ -1,3 +1,58 @@
+/*
+ * @file hvml-fpm.c
+ * @author Vincent Wei
+ * @date 2022/10/16
+ * @brief The main entry of hvml-fpm.
+ *
+ * Copyright (C) 2023 FMSoft <https://www.fmsoft.cn>
+ *
+ * This file is a part of hvml-fpm, which is an HVML FastCGI implementation.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * This file is derived from spawn-fcgi (<https://github.com/lighttpd/spawn-fcgi>).
+ *
+ * Copyright (C) 2004, Jan Kneschke, incremental.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * - Neither the name of the 'incremental' nor the names of its contributors may
+ *   be used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "config.h"
 
 #include <sys/types.h>
@@ -37,7 +92,7 @@
 
 /* for solaris 2.5 and netbsd 1.3.x */
 #if !HAVE(SOCKLEN_T)
-typedef int socklen_t;
+typedef unsigned int socklen_t;
 #endif
 
 #if !HAVE(ISSETUGID)
@@ -56,7 +111,7 @@ static int issetugid() {
 #define PACKAGE_FEATURES ""
 #endif
 
-#define PACKAGE_DESC "spawn-fcgi v" PACKAGE_VERSION PACKAGE_FEATURES " - spawns FastCGI processes\n"
+#define PACKAGE_DESC "hvml-fpm v" PACKAGE_VERSION PACKAGE_FEATURES " - spawns FastCGI processes\n"
 
 #define CONST_STR_LEN(s) s, sizeof(s) - 1
 
@@ -113,12 +168,12 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
          * as if we delete the socket-file and rebind there will be no "socket already in use" error
          */
         if (-1 == (fcgi_fd = socket(socket_type, SOCK_STREAM, 0))) {
-            fprintf(stderr, "spawn-fcgi: couldn't create socket: %s\n", strerror(errno));
+            fprintf(stderr, "hvml-fpm: couldn't create socket: %s\n", strerror(errno));
             return -1;
         }
 
         if (0 == connect(fcgi_fd, fcgi_addr, servlen)) {
-            fprintf(stderr, "spawn-fcgi: socket is already in use, can't spawn\n");
+            fprintf(stderr, "hvml-fpm: socket is already in use, can't spawn\n");
             close(fcgi_fd);
             return -1;
         }
@@ -129,7 +184,7 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
             case ENOENT:
                 break;
             default:
-                fprintf(stderr, "spawn-fcgi: removing old socket failed: %s\n", strerror(errno));
+                fprintf(stderr, "hvml-fpm: removing old socket failed: %s\n", strerror(errno));
                 close(fcgi_fd);
                 return -1;
             }
@@ -163,12 +218,12 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
             fcgi_addr = (struct sockaddr *) &fcgi_addr_in6;
 #endif
         } else {
-            fprintf(stderr, "spawn-fcgi: '%s' is not a valid IP address\n", addr);
+            fprintf(stderr, "hvml-fpm: '%s' is not a valid IP address\n", addr);
             return -1;
 #else
         } else {
             if ((in_addr_t)(-1) == (fcgi_addr_in.sin_addr.s_addr = inet_addr(addr))) {
-                fprintf(stderr, "spawn-fcgi: '%s' is not a valid IPv4 address\n", addr);
+                fprintf(stderr, "hvml-fpm: '%s' is not a valid IPv4 address\n", addr);
                 return -1;
             }
 #endif
@@ -177,26 +232,26 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
 
 
     if (-1 == (fcgi_fd = socket(socket_type, SOCK_STREAM, 0))) {
-        fprintf(stderr, "spawn-fcgi: couldn't create socket: %s\n", strerror(errno));
+        fprintf(stderr, "hvml-fpm: couldn't create socket: %s\n", strerror(errno));
         return -1;
     }
 
     val = 1;
     if (setsockopt(fcgi_fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0) {
-        fprintf(stderr, "spawn-fcgi: couldn't set SO_REUSEADDR: %s\n", strerror(errno));
+        fprintf(stderr, "hvml-fpm: couldn't set SO_REUSEADDR: %s\n", strerror(errno));
         close(fcgi_fd);
         return -1;
     }
 
     if (-1 == bind(fcgi_fd, fcgi_addr, servlen)) {
-        fprintf(stderr, "spawn-fcgi: bind failed: %s\n", strerror(errno));
+        fprintf(stderr, "hvml-fpm: bind failed: %s\n", strerror(errno));
         close(fcgi_fd);
         return -1;
     }
 
     if (unixsocket) {
         if (-1 == chmod(unixsocket, mode)) {
-            fprintf(stderr, "spawn-fcgi: couldn't chmod socket: %s\n", strerror(errno));
+            fprintf(stderr, "hvml-fpm: couldn't chmod socket: %s\n", strerror(errno));
             close(fcgi_fd);
             unlink(unixsocket);
             return -1;
@@ -206,7 +261,7 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
             if (0 == uid) uid = -1;
             if (0 == gid) gid = -1;
             if (-1 == chown(unixsocket, uid, gid)) {
-                fprintf(stderr, "spawn-fcgi: couldn't chown socket: %s\n", strerror(errno));
+                fprintf(stderr, "hvml-fpm: couldn't chown socket: %s\n", strerror(errno));
                 close(fcgi_fd);
                 unlink(unixsocket);
                 return -1;
@@ -215,7 +270,7 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
     }
 
     if (-1 == listen(fcgi_fd, backlog)) {
-        fprintf(stderr, "spawn-fcgi: listen failed: %s\n", strerror(errno));
+        fprintf(stderr, "hvml-fpm: listen failed: %s\n", strerror(errno));
         close(fcgi_fd);
         if (unixsocket) unlink(unixsocket);
         return -1;
@@ -266,7 +321,7 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
                     if (max_fd != STDERR_FILENO) dup2(max_fd, STDERR_FILENO);
                     if (max_fd != STDOUT_FILENO && max_fd != STDERR_FILENO) close(max_fd);
                 } else {
-                    fprintf(stderr, "spawn-fcgi: couldn't open and redirect stdout/stderr to '/dev/null': %s\n", strerror(errno));
+                    fprintf(stderr, "hvml-fpm: couldn't open and redirect stdout/stderr to '/dev/null': %s\n", strerror(errno));
                 }
             }
 
@@ -291,14 +346,14 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
             }
 
             /* in nofork mode stderr is still open */
-            fprintf(stderr, "spawn-fcgi: exec failed: %s\n", strerror(errno));
+            fprintf(stderr, "hvml-fpm: exec failed: %s\n", strerror(errno));
             exit(errno);
 
             break;
         }
         case -1:
             /* error */
-            fprintf(stderr, "spawn-fcgi: fork failed: %s\n", strerror(errno));
+            fprintf(stderr, "hvml-fpm: fork failed: %s\n", strerror(errno));
             break;
         default:
             /* father */
@@ -308,7 +363,7 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
 
             switch (waitpid(child, &status, WNOHANG)) {
             case 0:
-                fprintf(stdout, "spawn-fcgi: child spawned successfully: PID: %d\n", child);
+                fprintf(stdout, "hvml-fpm: child spawned successfully: PID: %d\n", child);
 
                 /* write pid file */
                 if (-1 != pid_fd) {
@@ -318,14 +373,14 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
                     snprintf(pidbuf, sizeof(pidbuf) - 1, "%d", child);
 
                     if (-1 == write_all(pid_fd, pidbuf, strlen(pidbuf))) {
-                        fprintf(stderr, "spawn-fcgi: writing pid file failed: %s\n", strerror(errno));
+                        fprintf(stderr, "hvml-fpm: writing pid file failed: %s\n", strerror(errno));
                         close(pid_fd);
                         pid_fd = -1;
                     }
                     /* avoid eol for the last one */
                     if (-1 != pid_fd && fork_count != 0) {
                         if (-1 == write_all(pid_fd, "\n", 1)) {
-                            fprintf(stderr, "spawn-fcgi: writing pid file failed: %s\n", strerror(errno));
+                            fprintf(stderr, "hvml-fpm: writing pid file failed: %s\n", strerror(errno));
                             close(pid_fd);
                             pid_fd = -1;
                         }
@@ -337,15 +392,15 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
                 break;
             default:
                 if (WIFEXITED(status)) {
-                    fprintf(stderr, "spawn-fcgi: child exited with: %d\n",
+                    fprintf(stderr, "hvml-fpm: child exited with: %d\n",
                         WEXITSTATUS(status));
                     rc = WEXITSTATUS(status);
                 } else if (WIFSIGNALED(status)) {
-                    fprintf(stderr, "spawn-fcgi: child signaled: %d\n",
+                    fprintf(stderr, "hvml-fpm: child signaled: %d\n",
                         WTERMSIG(status));
                     rc = 1;
                 } else {
-                    fprintf(stderr, "spawn-fcgi: child died somehow: exit status = %d\n",
+                    fprintf(stderr, "hvml-fpm: child died somehow: exit status = %d\n",
                         status);
                     rc = status;
                 }
@@ -378,13 +433,13 @@ static int find_user_group(const char *user, const char *group, uid_t *uid, gid_
 
         if (my_uid <= 0 || *endptr) {
             if (NULL == (my_pwd = getpwnam(user))) {
-                fprintf(stderr, "spawn-fcgi: can't find user name %s\n", user);
+                fprintf(stderr, "hvml-fpm: can't find user name %s\n", user);
                 return -1;
             }
             my_uid = my_pwd->pw_uid;
 
             if (my_uid == 0) {
-                fprintf(stderr, "spawn-fcgi: I will not set uid to 0\n");
+                fprintf(stderr, "hvml-fpm: I will not set uid to 0\n");
                 return -1;
             }
 
@@ -400,13 +455,13 @@ static int find_user_group(const char *user, const char *group, uid_t *uid, gid_
 
         if (my_gid <= 0 || *endptr) {
             if (NULL == (my_grp = getgrnam(group))) {
-                fprintf(stderr, "spawn-fcgi: can't find group name %s\n", group);
+                fprintf(stderr, "hvml-fpm: can't find group name %s\n", group);
                 return -1;
             }
             my_gid = my_grp->gr_gid;
 
             if (my_gid == 0) {
-                fprintf(stderr, "spawn-fcgi: I will not set gid to 0\n");
+                fprintf(stderr, "hvml-fpm: I will not set gid to 0\n");
                 return -1;
             }
         }
@@ -414,7 +469,7 @@ static int find_user_group(const char *user, const char *group, uid_t *uid, gid_
         my_gid = my_pwd->pw_gid;
 
         if (my_gid == 0) {
-            fprintf(stderr, "spawn-fcgi: I will not set gid to 0\n");
+            fprintf(stderr, "hvml-fpm: I will not set gid to 0\n");
             return -1;
         }
     }
@@ -432,7 +487,7 @@ static void show_version () {
 
 static void show_help () {
     (void) write_all(1, CONST_STR_LEN(
-        "Usage: spawn-fcgi [options] [-- <fcgiapp> [fcgi app arguments]]\n" \
+        "Usage: hvml-fpm [options] [-- <fcgiapp> [fcgi app arguments]]\n" \
         "\n" \
         PACKAGE_DESC \
         "\n" \
@@ -499,7 +554,7 @@ int main(int argc, char **argv) {
         case 'a': addr = optarg;/* ip addr */ break;
         case 'p': port = strtol(optarg, &endptr, 10);/* port */
             if (*endptr) {
-                fprintf(stderr, "spawn-fcgi: invalid port: %u\n", (unsigned int) port);
+                fprintf(stderr, "hvml-fpm: invalid port: %u\n", (unsigned int) port);
                 return -1;
             }
             break;
@@ -530,26 +585,26 @@ int main(int argc, char **argv) {
     }
 
     if (NULL == fcgi_app && NULL == fcgi_app_argv) {
-        fprintf(stderr, "spawn-fcgi: no FastCGI application given\n");
+        fprintf(stderr, "hvml-fpm: no FastCGI application given\n");
         return -1;
     }
 
     if (0 == port && NULL == unixsocket) {
-        fprintf(stderr, "spawn-fcgi: no socket given (use either -p or -s)\n");
+        fprintf(stderr, "hvml-fpm: no socket given (use either -p or -s)\n");
         return -1;
     } else if (0 != port && NULL != unixsocket) {
-        fprintf(stderr, "spawn-fcgi: either a Unix domain socket or a TCP-port, but not both\n");
+        fprintf(stderr, "hvml-fpm: either a Unix domain socket or a TCP-port, but not both\n");
         return -1;
     }
 
     if (unixsocket && strlen(unixsocket) > sizeof(un.sun_path) - 1) {
-        fprintf(stderr, "spawn-fcgi: path of the Unix domain socket is too long\n");
+        fprintf(stderr, "hvml-fpm: path of the Unix domain socket is too long\n");
         return -1;
     }
 
     /* SUID handling */
     if (!i_am_root && issetugid()) {
-        fprintf(stderr, "spawn-fcgi: Are you nuts? Don't apply a SUID bit to this binary\n");
+        fprintf(stderr, "hvml-fpm: Are you nuts? Don't apply a SUID bit to this binary\n");
         return -1;
     }
 
@@ -559,7 +614,7 @@ int main(int argc, char **argv) {
         (-1 == (pid_fd = open(pid_file, O_WRONLY | O_CREAT | O_EXCL | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)))) {
         struct stat st;
         if (errno != EEXIST) {
-            fprintf(stderr, "spawn-fcgi: opening PID-file '%s' failed: %s\n",
+            fprintf(stderr, "hvml-fpm: opening PID-file '%s' failed: %s\n",
                 pid_file, strerror(errno));
             return -1;
         }
@@ -567,7 +622,7 @@ int main(int argc, char **argv) {
         /* ok, file exists */
 
         if (0 != stat(pid_file, &st)) {
-            fprintf(stderr, "spawn-fcgi: stating PID-file '%s' failed: %s\n",
+            fprintf(stderr, "hvml-fpm: stating PID-file '%s' failed: %s\n",
                 pid_file, strerror(errno));
             return -1;
         }
@@ -575,13 +630,13 @@ int main(int argc, char **argv) {
         /* is it a regular file ? */
 
         if (!S_ISREG(st.st_mode)) {
-            fprintf(stderr, "spawn-fcgi: PID-file exists and isn't regular file: '%s'\n",
+            fprintf(stderr, "hvml-fpm: PID-file exists and isn't regular file: '%s'\n",
                 pid_file);
             return -1;
         }
 
         if (-1 == (pid_fd = open(pid_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH))) {
-            fprintf(stderr, "spawn-fcgi: opening PID-file '%s' failed: %s\n",
+            fprintf(stderr, "hvml-fpm: opening PID-file '%s' failed: %s\n",
                 pid_file, strerror(errno));
             return -1;
         }
@@ -599,7 +654,7 @@ int main(int argc, char **argv) {
             return -1;
 
         if (uid != 0 && gid == 0) {
-            fprintf(stderr, "spawn-fcgi: WARNING: couldn't find the user for uid %i and no group was specified, so only the user privileges will be dropped\n", (int) uid);
+            fprintf(stderr, "hvml-fpm: WARNING: couldn't find the user for uid %i and no group was specified, so only the user privileges will be dropped\n", (int) uid);
         }
 
         if (0 == sockuid) sockuid = uid;
@@ -613,16 +668,16 @@ int main(int argc, char **argv) {
          */
         if (gid != 0) {
             if (-1 == setgid(gid)) {
-                fprintf(stderr, "spawn-fcgi: setgid(%i) failed: %s\n", (int) gid, strerror(errno));
+                fprintf(stderr, "hvml-fpm: setgid(%i) failed: %s\n", (int) gid, strerror(errno));
                 return -1;
             }
             if (-1 == setgroups(0, NULL)) {
-                fprintf(stderr, "spawn-fcgi: setgroups(0, NULL) failed: %s\n", strerror(errno));
+                fprintf(stderr, "hvml-fpm: setgroups(0, NULL) failed: %s\n", strerror(errno));
                 return -1;
             }
             if (real_username) {
                 if (-1 == initgroups(real_username, gid)) {
-                    fprintf(stderr, "spawn-fcgi: initgroups('%s', %i) failed: %s\n", real_username, (int) gid, strerror(errno));
+                    fprintf(stderr, "hvml-fpm: initgroups('%s', %i) failed: %s\n", real_username, (int) gid, strerror(errno));
                     return -1;
                 }
             }
@@ -630,11 +685,11 @@ int main(int argc, char **argv) {
 
         if (changeroot) {
             if (-1 == chroot(changeroot)) {
-                fprintf(stderr, "spawn-fcgi: chroot('%s') failed: %s\n", changeroot, strerror(errno));
+                fprintf(stderr, "hvml-fpm: chroot('%s') failed: %s\n", changeroot, strerror(errno));
                 return -1;
             }
             if (-1 == chdir("/")) {
-                fprintf(stderr, "spawn-fcgi: chdir('/') failed: %s\n", strerror(errno));
+                fprintf(stderr, "hvml-fpm: chdir('/') failed: %s\n", strerror(errno));
                 return -1;
             }
         }
@@ -645,7 +700,7 @@ int main(int argc, char **argv) {
         /* drop root privs */
         if (uid != 0) {
             if (-1 == setuid(uid)) {
-                fprintf(stderr, "spawn-fcgi: setuid(%i) failed: %s\n", (int) uid, strerror(errno));
+                fprintf(stderr, "hvml-fpm: setuid(%i) failed: %s\n", (int) uid, strerror(errno));
                 return -1;
             }
         }
@@ -655,7 +710,7 @@ int main(int argc, char **argv) {
     }
 
     if (fcgi_dir && -1 == chdir(fcgi_dir)) {
-        fprintf(stderr, "spawn-fcgi: chdir('%s') failed: %s\n", fcgi_dir, strerror(errno));
+        fprintf(stderr, "hvml-fpm: chdir('%s') failed: %s\n", fcgi_dir, strerror(errno));
         return -1;
     }
 
