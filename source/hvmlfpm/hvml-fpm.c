@@ -91,6 +91,7 @@
 #endif
 
 #include "hvml-fpm.h"
+#include "hvml-executor.h"
 
 /* for solaris 2.5 and netbsd 1.3.x */
 #if !HAVE(SOCKLEN_T)

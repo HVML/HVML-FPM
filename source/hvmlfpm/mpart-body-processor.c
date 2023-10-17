@@ -4,8 +4,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <purc/purc-helpers.h>
-
+#include "hvml-executor.h"
 #include "multipart-parser.h"
 #include "mpart-body-processor.h"
 #include "util/kvlist.h"
@@ -239,15 +238,14 @@ static int headers_complete_cb(multipart_parser *p)
 
         char *name = kvlist_get(&attrs_map, "name");
         char *filename = kvlist_get(&attrs_map, "filename");
-        bool is_file = (filename != NULL);
 
-        if (is_file) {
+        if (filename != NULL) {
             str_sanitize(filename);
 
-            const char *upload_folder_path = "/exported/upload";
+            const char *upload_folder_path = HTTP_UPLOAD_PATH;
             mkdir(upload_folder_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
-            char template[] = "/exported/upload/hvml-XXXXXX";
+            char template[] = HTTP_UPLOAD_FILE_TEMPLATE;
             int fd = mkstemp(template);
             if (fd >= 0) {
                 processor->fp = fdopen(fd, "a");

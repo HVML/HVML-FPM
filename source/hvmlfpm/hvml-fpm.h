@@ -25,38 +25,6 @@
 #ifndef hvml_fpm_h
 #define hvml_fpm_h
 
-#include <time.h>
-
-#include <purc/purc.h>
-
-#define DEF_RDR_URI_HEADLESS    "file:///dev/null"
-#define HVML_RUN_NAME           "http-%u"
-
-/* The reserved variables */
-#define HVML_VAR_SERVER         "_SERVER"
-#define HVML_VAR_GET            "_GET"
-#define HVML_VAR_POST           "_POST"
-#define HVML_VAR_FILES          "_FILES"
-
-#ifdef NDEBUG
-#   define LOG_DEBUG(x, ...)
-#else
-#   define LOG_DEBUG(x, ...)   \
-    purc_log_debug("%s: " x, __func__, ##__VA_ARGS__)
-#endif /* not defined NDEBUG */
-
-#ifdef LOG_ERROR
-#   undef LOG_ERROR
-#endif
-
-#define LOG_ERROR(x, ...)   \
-    purc_log_error("%s: " x, __func__, ##__VA_ARGS__)
-
-#define LOG_WARN(x, ...)    \
-    purc_log_warn("%s: " x, __func__, ##__VA_ARGS__)
-
-#define LOG_INFO(x, ...)    \
-    purc_log_info("%s: " x, __func__, ##__VA_ARGS__)
 
 #ifndef MIN
 #   define MIN(x, y)   (((x) > (y)) ? (y) : (x))
@@ -78,16 +46,6 @@
 #else
 #   define SIZEOF_PTR   4
 #   define SIZEOF_HPTR  2
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int hvml_executor(const char *app, bool verbose);
-
-#ifdef __cplusplus
-}
 #endif
 
 #endif  /* hvml_fpm_h */

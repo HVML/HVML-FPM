@@ -34,7 +34,7 @@
 #include <unistd.h>
 
 #include "config.h"
-#include "hvml-fpm.h"
+#include "hvml-executor.h"
 #include "mpart-body-processor.h"
 #define NO_FCGI_DEFINES
 #include "libfcgi/fcgi_stdio.h"
