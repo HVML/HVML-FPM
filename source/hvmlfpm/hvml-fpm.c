@@ -77,18 +77,20 @@
 
 #define FCGI_LISTENSOCK_FILENO 0
 
-# include <sys/socket.h>
-# include <sys/ioctl.h>
-# include <netinet/in.h>
-# include <netinet/tcp.h>
-# include <sys/un.h>
-# include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/un.h>
+#include <arpa/inet.h>
 
-# include <netdb.h>
+#include <netdb.h>
 
 #if HAVE(SYS_WAIT_H)
 # include <sys/wait.h>
 #endif
+
+#include "hvml-fpm.h"
 
 /* for solaris 2.5 and netbsd 1.3.x */
 #if !HAVE(SOCKLEN_T)
@@ -330,6 +332,7 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
                 if (i != FCGI_LISTENSOCK_FILENO) close(i);
             }
 
+#if 0
             /* fork and replace shell */
             if (appArgv) {
                 execv(appArgv[0], appArgv);
@@ -344,11 +347,14 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
 
                 free(b);
             }
-
             /* in nofork mode stderr is still open */
             fprintf(stderr, "hvml-fpm: exec failed: %s\n", strerror(errno));
             exit(errno);
 
+#else
+            hvml_executor(appPath, true);
+            (void)appArgv;
+#endif
             break;
         }
         case -1:

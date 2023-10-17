@@ -8,7 +8,6 @@ HVMLFPM_INCLUDE_CONFIG_FILES_IF_EXISTS()
 list(APPEND hvmlfpm_PRIVATE_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}"
     "${FORWARDING_HEADERS_DIR}"
-    "${CMAKE_SOURCE_DIR}/libfcgi"
 )
 
 list(APPEND hvmlfpm_SYSTEM_INCLUDE_DIRECTORIES
@@ -19,9 +18,15 @@ HVMLFPM_EXECUTABLE(hvmlfpm)
 
 list(APPEND hvmlfpm_SOURCES
     "hvml-fpm.c"
+    "hvml-executor.c"
+    "multipart-parser.c"
+    "mpart-body-processor.c"
     "libfcgi/fcgiapp.c"
     "libfcgi/fcgi_stdio.c"
     "libfcgi/strerror.c"
+    "util/avl.c"
+    "util/avl-cmp.c"
+    "util/kvlist.c"
 )
 
 set(hvmlfpm_LIBRARIES
