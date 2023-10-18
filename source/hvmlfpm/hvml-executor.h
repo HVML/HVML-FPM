@@ -34,6 +34,7 @@
 #define HVML_VAR_SERVER         "_SERVER"
 #define HVML_VAR_GET            "_GET"
 #define HVML_VAR_POST           "_POST"
+#define HVML_VAR_COOKIE         "_COOKIE"
 #define HVML_VAR_FILES          "_FILES"
 
 #define HTTP_CONTENT_TYPE           "Content-Type"

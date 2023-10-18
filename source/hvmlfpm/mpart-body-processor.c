@@ -159,16 +159,16 @@ static void skip_spaces(char **ptr)
 }
 #endif
 
-static void attrs_map_parse(struct kvlist *map, char *str)
+static void attrs_map_parse(struct kvlist *map, const char *str)
 {
-    char *pair, *name, *value, *header_str, *original_ptr;
-    header_str = strdup(str);
-    original_ptr = header_str;
+    char *pair, *name, *value, *dup_value, *saved_ptr;
+    dup_value = strdup(str);
+    saved_ptr = dup_value;
 
-    while (isspace(*header_str))
-        header_str++;
+    while (isspace(*dup_value))
+        dup_value++;
 
-    while ((pair = strsep(&header_str, ";")) && pair != NULL) {
+    while ((pair = strsep(&dup_value, ";")) && pair != NULL) {
         name = strsep(&pair, "=");
         value = strsep(&pair, "=");
 
@@ -176,7 +176,7 @@ static void attrs_map_parse(struct kvlist *map, char *str)
                 strdup(str_trim(str_strip_quotes(value))));
     }
 
-    free(original_ptr);
+    free(saved_ptr);
 }
 
 static void attrs_map_delete(struct kvlist *map)
@@ -190,6 +190,41 @@ static void attrs_map_delete(struct kvlist *map)
     }
 
     kvlist_free(map);
+}
+
+
+purc_variant_t
+purc_make_object_from_http_header_value(const char *line)
+{
+    purc_variant_t obj = purc_variant_make_object_0();
+
+    char *pair, *name, *value, *dup_value, *saved_ptr;
+    dup_value = strdup(line);
+    saved_ptr = dup_value;
+
+    while (isspace(*dup_value))
+        dup_value++;
+
+    while ((pair = strsep(&dup_value, ";")) && pair != NULL) {
+        name = strsep(&pair, "=");
+        value = strsep(&pair, "=");
+
+        name = str_trim(name);
+        value = str_trim(value);
+        purc_variant_t k = purc_variant_make_string(name, true);
+        purc_variant_t v = purc_variant_make_string(value, true);
+        if (k && v) {
+            purc_variant_object_set(obj, k, v);
+        }
+
+        if (k)
+            purc_variant_unref(k);
+        if (v)
+            purc_variant_unref(v);
+    }
+
+    free(saved_ptr);
+    return obj;
 }
 
 static void str_sanitize(char *str)

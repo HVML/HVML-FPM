@@ -148,6 +148,7 @@ struct request_info {
     purc_variant_t server;
     purc_variant_t get;
     purc_variant_t post;
+    purc_variant_t cookie;
     purc_variant_t files;
     purc_variant_t request;
     purc_vdom_t vdom;
@@ -240,19 +241,17 @@ static purc_variant_t parse_content_as_form_urlencoded(size_t content_length)
 
             v = purc_make_object_from_query_string(buf, true);
             if (v == PURC_VARIANT_INVALID) {
-                purc_log_error("%s: Failed when parsing content.\n", __func__);
+                LOG_ERROR("Failed when parsing content.\n");
             }
         }
         else {
-            purc_log_error("%s: Mismatched content length and content got.\n",
-                    __func__);
+            LOG_ERROR("Mismatched content length and content got.\n");
         }
 
         free(buf);
     }
     else {
-        purc_log_error("%s: Failed to allocate memory to hold content.\n",
-                __func__);
+        LOG_ERROR("Failed to allocate memory to hold content.\n");
     }
 
     return v;
@@ -282,7 +281,7 @@ static purc_variant_t parse_content_as_json(size_t content_length)
         purc_rwstream_destroy(stm);
     }
     else {
-        purc_log_error("Failed when making stream from stdio\n");
+        LOG_ERROR("Failed when making stream from stdio\n");
     }
 
     return v;
@@ -301,20 +300,17 @@ static purc_variant_t parse_content_as_xml(size_t content_length)
             v = purc_variant_make_string_reuse_buff(buf, content_length + 1,
                     true);
             if (v == PURC_VARIANT_INVALID) {
-                purc_log_error("%s: Failed when make string from content.\n",
-                        __func__);
+                LOG_ERROR("Failed when make string from content.\n");
                 goto failed;
             }
         }
         else {
-            purc_log_error("%s: Mismatched content length and content got.\n",
-                    __func__);
+            LOG_ERROR("Mismatched content length and content got.\n");
             goto failed;
         }
     }
     else {
-        purc_log_error("%s: Failed to allocate memory to hold content.\n",
-                __func__);
+        LOG_ERROR("Failed to allocate memory to hold content.\n");
     }
 
     return v;
@@ -322,6 +318,36 @@ static purc_variant_t parse_content_as_xml(size_t content_length)
 failed:
     free(buf);
     return v;
+}
+
+static int release_request(struct request_info *info)
+{
+    if (info->server) {
+        purc_variant_unref(info->server);
+    }
+
+    if (info->get) {
+        purc_variant_unref(info->get);
+    }
+
+    if (info->post) {
+        purc_variant_unref(info->post);
+    }
+
+    if (info->cookie) {
+        purc_variant_unref(info->cookie);
+    }
+
+    if (info->files) {
+        purc_variant_unref(info->files);
+    }
+
+    if (info->request) {
+        purc_variant_unref(info->request);
+    }
+
+    memset(info, 0, sizeof(*info));
+    return 0;
 }
 
 static int make_request(struct request_info *info)
@@ -456,7 +482,7 @@ static int make_request(struct request_info *info)
             }
 
             if (tmp == PURC_VARIANT_INVALID) {
-                purc_log_error("Failed when making an variant for %s\n",
+                LOG_ERROR("Failed when making an variant for %s\n",
                         meta_vars[i].name);
                 goto failed;
             }
@@ -464,7 +490,7 @@ static int make_request(struct request_info *info)
         else if (meta_vars[i].type == VT_ULONG) {
             tmp = purc_variant_make_ulongint(0);
             if (tmp == PURC_VARIANT_INVALID) {
-                purc_log_error("Failed when making a ulong 0 variant for %s\n",
+                LOG_ERROR("Failed when making a ulong 0 variant for %s\n",
                         meta_vars[i].name);
                 goto failed;
             }
@@ -475,7 +501,7 @@ static int make_request(struct request_info *info)
                     meta_vars[i].name, tmp);
             purc_variant_unref(tmp);
             if (!success) {
-                purc_log_error("Failed when making a property for %s\n",
+                LOG_ERROR("Failed when making a property for %s\n",
                         meta_vars[i].name);
                 goto failed;
             }
@@ -493,7 +519,7 @@ static int make_request(struct request_info *info)
         if (query) {
             info->get = purc_make_object_from_query_string(query, true);
             if (info->get == PURC_VARIANT_INVALID) {
-                purc_log_error("Failed when parsing query string\n");
+                LOG_ERROR("Failed when parsing query string\n");
                 goto failed;
             }
         }
@@ -538,13 +564,12 @@ static int make_request(struct request_info *info)
                         break;
 
                     case CT_BAD:
-                        purc_log_error("%s: Bad content type.\n", __func__);
+                        LOG_ERROR("Bad content type.\n");
                         goto failed;
                         break;
 
                     case CT_NOT_SUPPORTED:
-                        purc_log_error("%s: Not supported content type.\n",
-                                __func__);
+                        LOG_ERROR("Not supported content type.\n");
                         goto failed;
                         break;
                 }
@@ -552,51 +577,35 @@ static int make_request(struct request_info *info)
         }
     }
 
-    if (info->get)
-        info->request = purc_variant_ref(info->get);
-    else if (info->post)
-        info->request = purc_variant_ref(info->get);
+    const char *cookie =
+        purc_variant_get_string_const(
+                purc_variant_object_get_by_ckey(info->server, "HTTP_COOKIE"));
+    if (cookie) {
+        info->cookie = purc_make_object_from_http_header_value(cookie);
+    }
 
-    /* info->vdom = purc_load_hvml_from_file(...); */
+    if (info->get == PURC_VARIANT_INVALID)
+        info->get = purc_variant_make_object_0();
+    if (info->post)
+        info->post = purc_variant_make_object_0();
+    if (info->cookie)
+        info->cookie = purc_variant_make_object_0();
+
+    info->request = purc_variant_make_object_0();
+    /* merge properties of GET, POST, and COOKIE to request */
+    purc_variant_object_unite(info->request, info->get,
+            PCVRNT_CR_METHOD_OVERWRITE);
+    purc_variant_object_unite(info->request, info->post,
+            PCVRNT_CR_METHOD_OVERWRITE);
+    purc_variant_object_unite(info->request, info->cookie,
+            PCVRNT_CR_METHOD_OVERWRITE);
+
+    /* TODO: info->vdom = purc_load_hvml_from_file(...); */
     return 0;
 
 failed:
-    if (info->server) {
-        purc_variant_unref(info->server);
-    }
-    if (info->get) {
-        purc_variant_unref(info->get);
-    }
-    if (info->post) {
-        purc_variant_unref(info->post);
-    }
-    if (info->request) {
-        purc_variant_unref(info->request);
-    }
-
-    memset(info, 0, sizeof(*info));
+    release_request(info);
     return -1;
-}
-
-static int release_request(struct request_info *request_info)
-{
-    if (request_info->server) {
-        purc_variant_unref(request_info->server);
-    }
-
-    if (request_info->get) {
-        purc_variant_unref(request_info->get);
-    }
-
-    if (request_info->post) {
-        purc_variant_unref(request_info->post);
-    }
-
-    if (request_info->request) {
-        purc_variant_unref(request_info->request);
-    }
-
-    return 0;
 }
 
 int hvml_executor(const char *app, bool verbose)
@@ -662,7 +671,7 @@ int hvml_executor(const char *app, bool verbose)
         }
 
         /* bind _GET */
-        if (request_info.get && !purc_coroutine_bind_variable(cor,
+        if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_GET, request_info.get)) {
             fprintf(stderr, "Failed to bind " HVML_VAR_GET ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
@@ -670,9 +679,25 @@ int hvml_executor(const char *app, bool verbose)
         }
 
         /* bind _POST */
-        if (request_info.post && !purc_coroutine_bind_variable(cor,
+        if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_POST, request_info.post)) {
             fprintf(stderr, "Failed to bind " HVML_VAR_POST ":%s\n",
+                    purc_get_error_message(purc_get_last_error()));
+            break;
+        }
+
+        /* bind _COOKIE */
+        if (!purc_coroutine_bind_variable(cor,
+                    HVML_VAR_COOKIE, request_info.cookie)) {
+            fprintf(stderr, "Failed to bind " HVML_VAR_COOKIE ":%s\n",
+                    purc_get_error_message(purc_get_last_error()));
+            break;
+        }
+
+        /* bind _FILES */
+        if (!purc_coroutine_bind_variable(cor,
+                    HVML_VAR_FILES, request_info.files)) {
+            fprintf(stderr, "Failed to bind " HVML_VAR_FILES ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             break;
         }
