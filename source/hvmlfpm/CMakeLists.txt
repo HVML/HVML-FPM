@@ -80,6 +80,9 @@ set_target_properties(testexecutor PROPERTIES
 set(testcase_FILES
     "testcase/get.txt"
     "testcase/get.hvml"
+    "testcase/echo.hvml"
+    "testcase/post-plain.txt"
+    "testcase/post-json.txt"
 )
 
 HVMLFPM_COPY_FILES(TestCaseFiles

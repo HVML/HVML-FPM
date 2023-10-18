@@ -154,6 +154,7 @@ enum post_content_type {
     CT_FORM_DATA,
     CT_JSON,
     CT_XML,
+    CT_PLAIN,
 };
 
 #define strncasecmp2ltr(str, literal, len)      \
@@ -163,52 +164,63 @@ enum post_content_type {
 static enum post_content_type
 check_post_content_type(const char *content_type, const char **boundary)
 {
-    size_t len = 0;
+    size_t whole_len = strlen(content_type);
+    size_t mime_len = 0;
 
     enum post_content_type ct = CT_NOT_SUPPORTED;
-    const char *mime = pcutils_get_next_token(content_type, ";", &len);
-    if (len == 0)
+    const char *mime = pcutils_get_next_token(content_type, ";", &mime_len);
+    if (mime_len == 0)
         goto bad;
 
-    const char *extkv = mime + len;
-    size_t key_len;
-    extkv = pcutils_get_next_token(extkv, " ", &key_len);
-    if (len == 0 || extkv[key_len] != '=')
-        goto bad;
-
-    if (strncasecmp2ltr(extkv, "charset", key_len) == 0) {
-        const char *value = extkv + key_len + 1;
-        size_t value_len = len - key_len - 1;
-        if (strncasecmp2ltr(value, "utf-8", value_len))
+    *boundary = NULL;
+    if (mime_len < whole_len) {
+        const char *extkv = mime + mime_len;
+        size_t key_len;
+        extkv = pcutils_get_next_token(extkv, " =", &key_len);
+        if (key_len == 0 || extkv[key_len] != '=')
             goto bad;
-    }
-    else if (strncasecmp2ltr(extkv, "boundary", key_len) == 0) {
-        const char *value = extkv + key_len + 1;
-        *boundary = value;
+
+        if (strncasecmp2ltr(extkv, "charset", key_len) == 0) {
+            const char *value = extkv + key_len + 1;
+            size_t value_len = mime_len - key_len - 1;
+            if (strncasecmp2ltr(value, "utf-8", value_len))
+                goto bad;
+        }
+        else if (strncasecmp2ltr(extkv, "boundary", key_len) == 0) {
+            const char *value = extkv + key_len + 1;
+            *boundary = value;
+        }
     }
 
     size_t type_len;
-    const char *type = pcutils_get_next_token_len(mime, len, "/", &type_len);
-    if (type_len == 0 || type_len == len)
+    const char *type = pcutils_get_next_token_len(mime, mime_len, "/", &type_len);
+    if (type_len == 0 || type_len == mime_len)
         goto bad;
 
     const char *subtype = type + type_len + 1;
-    size_t subtype_len = len - type_len - 1;
+    size_t subtype_len = mime_len - type_len - 1;
     if (strncasecmp2ltr(type, "application", type_len) == 0) {
         if (strncasecmp2ltr(subtype, "x-www-form-urlencoded", subtype_len) == 0) {
             ct = CT_FORM_URLENCODED;
         }
-        else {
+        else if (strncasecmp2ltr(subtype, "json", subtype_len) == 0) {
             ct = CT_JSON;
+        }
+        else {
+            ct = CT_NOT_SUPPORTED;
         }
     }
     else if (strncasecmp2ltr(type, "multipart", type_len) == 0 &&
             strncasecmp2ltr(subtype, "form-data", subtype_len)) {
         ct = CT_FORM_DATA;
     }
-    else if (strncasecmp2ltr(type, "text", type_len) == 0 &&
-            strncasecmp2ltr(subtype, "xml", subtype_len)) {
-        ct = CT_XML;
+    else if (strncasecmp2ltr(type, "text", type_len) == 0) {
+        if (strncasecmp2ltr(subtype, "xml", subtype_len) == 0) {
+            ct = CT_XML;
+        }
+        else if (strncasecmp2ltr(subtype, "plain", subtype_len) == 0) {
+            ct = CT_PLAIN;
+        }
     }
 
     return ct;
@@ -275,7 +287,12 @@ static purc_variant_t parse_content_as_json(size_t content_length)
     return v;
 }
 
+/* TODO:
 static purc_variant_t parse_content_as_xml(size_t content_length)
+{
+} */
+
+static purc_variant_t parse_content_as_plain(size_t content_length)
 {
     purc_variant_t v = PURC_VARIANT_INVALID;
 
@@ -529,8 +546,10 @@ static int make_request(struct request_info *info)
                 const char *boundary;
                 ct = check_post_content_type(content_type, &boundary);
 
-                if (ct <= 0)
+                if (ct <= 0) {
+                    LOG_ERROR("not supported content type: %s\n", content_type);
                     goto failed;
+                }
 
                 switch (ct) {
                     case CT_FORM_URLENCODED:
@@ -539,8 +558,14 @@ static int make_request(struct request_info *info)
                         break;
 
                     case CT_FORM_DATA:
-                        parse_content_as_multipart_form_data(content_length,
-                                boundary, &info->post, &info->files);
+                        if (boundary) {
+                            parse_content_as_multipart_form_data(content_length,
+                                    boundary, &info->post, &info->files);
+                        }
+                        else {
+                            LOG_ERROR("No boundary defined.\n");
+                            goto failed;
+                        }
                         break;
 
                     case CT_JSON:
@@ -548,7 +573,12 @@ static int make_request(struct request_info *info)
                         break;
 
                     case CT_XML:
-                        info->post = parse_content_as_xml(content_length);
+                        /* TODO */
+                        info->post = parse_content_as_plain(content_length);
+                        break;
+
+                    case CT_PLAIN:
+                        info->post = parse_content_as_plain(content_length);
                         break;
 
                     case CT_BAD:
@@ -576,13 +606,11 @@ static int make_request(struct request_info *info)
         info->get = purc_variant_make_object_0();
     if (info->post == PURC_VARIANT_INVALID) {
         info->post = purc_variant_make_object_0();
-        printf("make an empty object for post\n");
     }
     if (info->cookie == PURC_VARIANT_INVALID)
         info->cookie = purc_variant_make_object_0();
     if (info->files == PURC_VARIANT_INVALID) {
         info->files = purc_variant_make_object_0();
-        printf("make an empty object for file\n");
     }
 
     info->request = purc_variant_make_object_0();

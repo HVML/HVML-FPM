@@ -1,14 +1,14 @@
-# Method: GET, no message body
+# Method: POST, message body: application/json
 AUTH_TYPE:
-CONTENT_LENGTH:
-CONTENT_TYPE:
+CONTENT_LENGTH:21
+CONTENT_TYPE:text/plain;charset=UTF-8
 GATEWAY_INTERFACE: CGI/1.1
 PATH_INFO:
 PATH_TRANSLATED:
 QUERY_STRING:A=a&B=b
 REMOTE_ADDR:127.0.0.1
 REMOTE_HOST:localhost
-REQUEST_METHOD:GET
+REQUEST_METHOD:POST
 SCRIPT_NAME:testcase/echo.hvml
 SERVER_NAME:test
 SERVER_PORT:80
@@ -25,3 +25,4 @@ REQUEST_URI:testcase/echo.hvml
 SCRIPT_FILENAME:/app/cn.fmsoft.hybridos/exported/hvml/testcase/echo.hvml
 SERVER_ADMIN:foo@bar.com
 ---
+This is a plain text.
