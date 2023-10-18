@@ -83,6 +83,7 @@ set(testcase_FILES
     "testcase/echo.hvml"
     "testcase/post-plain.txt"
     "testcase/post-json.txt"
+    "testcase/post-urlencoded.txt"
 )
 
 HVMLFPM_COPY_FILES(TestCaseFiles
