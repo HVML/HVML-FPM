@@ -28,7 +28,7 @@
 #include <purc/purc.h>
 
 #define DEF_RDR_URI_HEADLESS    "file:///dev/null"
-#define HVML_RUN_NAME           "http-%u"
+#define HVML_RUN_NAME           "http%u"
 
 /* The reserved variables */
 #define HVML_VAR_SERVER         "_SERVER"

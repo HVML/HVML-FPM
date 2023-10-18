@@ -586,10 +586,12 @@ static int make_request(struct request_info *info)
 
     if (info->get == PURC_VARIANT_INVALID)
         info->get = purc_variant_make_object_0();
-    if (info->post)
+    if (info->post == PURC_VARIANT_INVALID)
         info->post = purc_variant_make_object_0();
-    if (info->cookie)
+    if (info->cookie == PURC_VARIANT_INVALID)
         info->cookie = purc_variant_make_object_0();
+    if (info->files == PURC_VARIANT_INVALID)
+        info->files = purc_variant_make_object_0();
 
     info->request = purc_variant_make_object_0();
     /* merge properties of GET, POST, and COOKIE to request */
@@ -600,7 +602,15 @@ static int make_request(struct request_info *info)
     purc_variant_object_unite(info->request, info->cookie,
             PCVRNT_CR_METHOD_OVERWRITE);
 
-    /* TODO: info->vdom = purc_load_hvml_from_file(...); */
+    const char *script_name =
+        purc_variant_get_string_const(
+                purc_variant_object_get_by_ckey(info->server, "SCRIPT_NAME"));
+    info->vdom = purc_load_hvml_from_file(script_name);
+    if (info->vdom == NULL) {
+        LOG_ERROR("Failed to load vDOM from %s.\n", script_name);
+        goto failed;
+    }
+
     return 0;
 
 failed:
@@ -640,10 +650,10 @@ int hvml_executor(const char *app, bool verbose)
 
     if (verbose) {
         purc_enable_log_ex(PURC_LOG_MASK_DEFAULT | PURC_LOG_MASK_INFO,
-                PURC_LOG_FACILITY_FILE);
+                PURC_LOG_FACILITY_SYSLOG);
     }
     else {
-        purc_enable_log_ex(PURC_LOG_MASK_DEFAULT, PURC_LOG_FACILITY_FILE);
+        purc_enable_log_ex(PURC_LOG_MASK_DEFAULT, PURC_LOG_FACILITY_SYSLOG);
     }
 
     size_t nr_executed = 0;
@@ -651,7 +661,7 @@ int hvml_executor(const char *app, bool verbose)
         struct request_info request_info = { };
 
         if ((ret = make_request(&request_info))) {
-            fprintf(stderr, "Failed to parse the request:%s\n",
+            LOG_ERROR("Failed to parse the request: %s\n",
                     purc_get_error_message(purc_get_last_error()));
             break;
         }
@@ -665,7 +675,7 @@ int hvml_executor(const char *app, bool verbose)
         /* bind _SERVER */
         if (!purc_coroutine_bind_variable(cor, HVML_VAR_SERVER,
                     request_info.server)) {
-            fprintf(stderr, "Failed to bind " HVML_VAR_SERVER ":%s\n",
+            LOG_ERROR("Failed to bind " HVML_VAR_SERVER ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
             break;
         }
@@ -673,7 +683,7 @@ int hvml_executor(const char *app, bool verbose)
         /* bind _GET */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_GET, request_info.get)) {
-            fprintf(stderr, "Failed to bind " HVML_VAR_GET ":%s\n",
+            LOG_ERROR("Failed to bind " HVML_VAR_GET ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
             break;
         }
@@ -681,7 +691,7 @@ int hvml_executor(const char *app, bool verbose)
         /* bind _POST */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_POST, request_info.post)) {
-            fprintf(stderr, "Failed to bind " HVML_VAR_POST ":%s\n",
+            LOG_ERROR("Failed to bind " HVML_VAR_POST ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             break;
         }
@@ -689,7 +699,7 @@ int hvml_executor(const char *app, bool verbose)
         /* bind _COOKIE */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_COOKIE, request_info.cookie)) {
-            fprintf(stderr, "Failed to bind " HVML_VAR_COOKIE ":%s\n",
+            LOG_ERROR("Failed to bind " HVML_VAR_COOKIE ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             break;
         }
@@ -697,7 +707,7 @@ int hvml_executor(const char *app, bool verbose)
         /* bind _FILES */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_FILES, request_info.files)) {
-            fprintf(stderr, "Failed to bind " HVML_VAR_FILES ":%s\n",
+            LOG_ERROR("Failed to bind " HVML_VAR_FILES ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             break;
         }

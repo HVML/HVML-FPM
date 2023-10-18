@@ -1,0 +1,27 @@
+# Method: GET, no message body
+AUTH_TYPE:
+CONTENT_LENGTH:
+CONTENT_TYPE:
+GATEWAY_INTERFACE: CGI/1.1
+PATH_INFO:
+PATH_TRANSLATED:
+QUERY_STRING:A=a&B=b
+REMOTE_ADDR:127.0.0.1
+REMOTE_HOST:localhost
+REQUEST_METHOD:GET
+SCRIPT_NAME:testcase/get.hvml
+SERVER_NAME:test
+SERVER_PORT:80
+SERVER_PROTOCOL:HTTP/1.1
+SERVER_SOFTWARE:test
+HTTP_COOKIE:yummy_cookie=choco; tasty_cookie=strawberry
+HTTP_HOST:www.example.org
+HTTP_REFERER:
+HTTP_USER_AGENT:Scooter/3.3
+DOCUMENT_ROOT:/
+REMOTE_PORT:
+HTTPS:on
+REQUEST_URI:testcase/get.hvml
+SCRIPT_FILENAME:/app/cn.fmsoft.hybridos/exported/hvml/testcase/get.hvml
+SERVER_ADMIN:foo@bar.com
+---
