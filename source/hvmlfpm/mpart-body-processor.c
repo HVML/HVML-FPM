@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -8,6 +7,9 @@
 #include "multipart-parser.h"
 #include "mpart-body-processor.h"
 #include "util/kvlist.h"
+
+#undef NDEBUG
+#include <assert.h>
 
 typedef struct mpart_body_processor {
     purc_variant_t post;
@@ -32,22 +34,31 @@ typedef struct mpart_body_processor {
     FILE *fp;
 } mpart_body_processor;
 
+static void add_new_header(mpart_body_processor *processor)
+{
+    assert(processor->last_header_name && processor->last_header_value);
+
+    LOG_DEBUG("Got a new header: %s: %s\n",
+            processor->last_header_name, processor->last_header_value);
+    kvlist_set(processor->headers, processor->last_header_name,
+            &processor->last_header_value);
+
+    free(processor->last_header_name);
+    // free(processor->last_header_value);
+    processor->last_header_name = NULL;
+    processor->last_header_value = NULL;
+    processor->last_header_name_len = 0;
+    processor->last_header_value_len = 0;
+}
+
 static int header_field_cb(multipart_parser *p, const char *buf, size_t len)
 {
     mpart_body_processor *processor = multipart_parser_get_data(p);
     if (processor->last_header_name && processor->last_header_value) {
-
-        kvlist_set_ex(processor->headers, processor->last_header_name,
-            processor->last_header_value);
-
-        free(processor->last_header_name);
-        // free(processor->last_header_value);
-        processor->last_header_name = NULL;
-        processor->last_header_value = NULL;
-        processor->last_header_name_len = 0;
-        processor->last_header_value_len = 0;
+        add_new_header(processor);
     }
-    else if (processor->last_header_name == NULL) {
+
+    if (processor->last_header_name == NULL) {
         processor->last_header_name = strndup(buf, len);
         processor->last_header_name_len = len;
     }
@@ -172,8 +183,8 @@ static void attrs_map_parse(struct kvlist *map, const char *str)
         name = strsep(&pair, "=");
         value = strsep(&pair, "=");
 
-        kvlist_set(map, str_trim(name),
-                strdup(str_trim(str_strip_quotes(value))));
+        char *data = strdup(str_trim(str_strip_quotes(value)));
+        kvlist_set(map, str_trim(name), &data);
     }
 
     free(saved_ptr);
@@ -258,23 +269,60 @@ static void headers_map_delete(mpart_body_processor *processor)
     processor->headers = NULL;
 }
 
+static void mpart_body_processor_release(mpart_body_processor *processor)
+{
+    if (processor->parser)
+        multipart_parser_free(processor->parser);
+
+    /* headers of current part */
+    if (processor->headers)
+        headers_map_delete(processor);
+
+    if (processor->last_header_name)
+        free(processor->last_header_name);
+
+    /*
+    if (processor->last_header_value)
+        free(processor->last_header_value); */
+
+    if (processor->name)
+        free(processor->name);
+    if (processor->data)
+        free(processor->data);
+    if (processor->fp)
+        fclose(processor->fp);
+
+    memset(processor, 0, sizeof(*processor));
+}
+
 static int headers_complete_cb(multipart_parser *p)
 {
     mpart_body_processor *processor = multipart_parser_get_data(p);
 
-    char *content_disposition = kvlist_get(processor->headers,
-            "Content-Disposition");
+    if (processor->last_header_name && processor->last_header_value) {
+        add_new_header(processor);
+    }
 
+    void *data = kvlist_get(processor->headers, "Content-Disposition");
+    if (data == NULL) {
+        return -1;
+    }
+
+    char *content_disposition = *(char **)data;
     if (str_starts_with(content_disposition, "form-data;")) {
         struct kvlist attrs_map;
         kvlist_init(&attrs_map, NULL);
         attrs_map_parse(&attrs_map,
                 content_disposition + sizeof("form-data;") - 1);
 
-        char *name = kvlist_get(&attrs_map, "name");
-        char *filename = kvlist_get(&attrs_map, "filename");
+        data = kvlist_get(&attrs_map, "name");
+        if (data == NULL)
+            goto failed;
 
-        if (filename != NULL) {
+        char *name = *(char **)data;
+        data = kvlist_get(&attrs_map, "filename");
+        if (data) {
+            char *filename = *(char **)data;
             str_sanitize(filename);
 
             const char *upload_folder_path = HTTP_UPLOAD_PATH;
@@ -290,8 +338,11 @@ static int headers_complete_cb(multipart_parser *p)
                 goto failed;
             }
 
-            char *content_type = kvlist_get(processor->headers,
-                    "Content-Type");
+            data = kvlist_get(processor->headers, "Content-Type");
+            if (data == NULL)
+                goto failed;
+
+            char *content_type = *(char **)data;
 
             purc_variant_t tmp;
 
@@ -323,12 +374,11 @@ static int headers_complete_cb(multipart_parser *p)
             purc_variant_t tmp = purc_variant_make_null();
             purc_variant_object_set_by_ckey(processor->post, name, tmp);
             purc_variant_unref(tmp);
-
             processor->fp = NULL;
         }
 
-        attrs_map_delete(&attrs_map);
         processor->name = strdup(name);
+        attrs_map_delete(&attrs_map);
     }
     else {
         goto failed;
@@ -354,12 +404,11 @@ static int part_data_cb(multipart_parser *p, const char *buf, size_t len)
         processor->data_len += len;
     }
     else if (processor->data == NULL) {
-        processor->data = malloc(len);
+        processor->data = strndup(buf, len);
         processor->data_len = len;
-        memcpy(processor->data, buf, len);
     }
     else {
-        char *new_data = malloc(processor->data_len + len);
+        char *new_data = malloc(processor->data_len + len + 1);
         strcpy(new_data, processor->data);
         strncat(new_data, buf, len);
 
@@ -397,8 +446,10 @@ static int part_data_end_cb(multipart_parser *p)
         purc_variant_unref(tmp);
 
         fclose(processor->fp);
+        processor->fp = NULL;
     }
     else if (processor->data) {
+        LOG_DEBUG("Got a data for `%s`: `%s`\n", processor->name, processor->data);
         purc_variant_t tmp = purc_variant_make_string(processor->data, true);
         purc_variant_object_set_by_ckey(processor->post, processor->name, tmp);
         purc_variant_unref(tmp);
@@ -437,13 +488,22 @@ parse_content_as_multipart_form_data(size_t content_length,
     processor.parser = multipart_parser_init(boundary, &settings);
     multipart_parser_set_data(processor.parser, &processor);
 
+    processor.post = purc_variant_make_object_0();
+    processor.files = purc_variant_make_object_0();
+
     size_t nr_bytes = 0;
     do {
-        char buf[1024];
+        char buf[256];
         size_t n = fread(buf, 1, sizeof(buf), stdin);
 
-        if (multipart_parser_execute(processor.parser, buf, n) < n)
+        size_t consumed = multipart_parser_execute(processor.parser, buf, n);
+        LOG_DEBUG("Consumed bytes by the parser: %u (got %u)\n",
+                (unsigned)consumed, (unsigned)n);
+
+        if (consumed < n) {
+            LOG_ERROR("Failed multipart_parser_execute().\n");
             break;
+        }
 
         nr_bytes += n;
         if (n < sizeof(buf))
@@ -452,13 +512,12 @@ parse_content_as_multipart_form_data(size_t content_length,
     } while (true);
 
     if (nr_bytes < content_length) {
-        purc_log_error("%s: Mismatched content length and content got.\n",
-                __func__);
+        LOG_ERROR("Mismatched content length and content got.\n");
     }
 
-    multipart_parser_free(processor.parser);
     *post = processor.post;
     *files = processor.files;
+    mpart_body_processor_release(&processor);
     return 0;
 }
 

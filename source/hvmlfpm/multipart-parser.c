@@ -9,13 +9,16 @@
 #include <stdarg.h>
 #include <string.h>
 
+#undef DEBUG_MULTIPART
+
+__attribute__((format(printf, 1, 0)))
 static void multipart_log(const char * format, ...)
 {
 #ifdef DEBUG_MULTIPART
     va_list args;
     va_start(args, format);
 
-    fprintf(stderr, "[HTTP_MULTIPART_PARSER] %s:%d: ", __FILE__, __LINE__);
+    fprintf(stderr, "[HTTP_MULTIPART_PARSER]: ");
     vfprintf(stderr, format, args);
     fprintf(stderr, "\n");
 #else
@@ -130,12 +133,14 @@ size_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len
         multipart_log("s_start_boundary");
         if (p->index == p->boundary_length) {
           if (c != CR) {
+            multipart_log("CR expected\n");
             return i;
           }
           p->index++;
           break;
         } else if (p->index == (p->boundary_length + 1)) {
           if (c != LF) {
+            multipart_log("LF expected\n");
             return i;
           }
           p->index = 0;
@@ -144,6 +149,7 @@ size_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len
           break;
         }
         if (c != p->multipart_boundary[p->index]) {
+          multipart_log("Differs from boundary: %d\n", p->index);
           return i;
         }
         p->index++;
@@ -170,7 +176,7 @@ size_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len
 
         cl = tolower(c);
         if ((c != '-') && (cl < 'a' || cl > 'z')) {
-          multipart_log("invalid character in header name");
+          multipart_log("invalid character in header name: %c", c);
           return i;
         }
         if (is_last)
@@ -180,6 +186,7 @@ size_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len
       case s_headers_almost_done:
         multipart_log("s_headers_almost_done");
         if (c != LF) {
+          multipart_log("LF expected\n");
           return i;
         }
 
@@ -210,6 +217,7 @@ size_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len
       case s_header_value_almost_done:
         multipart_log("s_header_value_almost_done");
         if (c != LF) {
+          multipart_log("LF expected\n");
           return i;
         }
         p->state = s_header_field_start;

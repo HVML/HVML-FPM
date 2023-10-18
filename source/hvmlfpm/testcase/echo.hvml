@@ -1,10 +1,10 @@
 <!DOCTYPE hvml>
 <hvml target="html">
   <head>
-    <title>Test for HVML-FPM (GET)</title>
+    <title>Test for HVML-FPM (ECHO)</title>
   </head>
   <body>
-    <h1>Test for HVML-FPM (GET)</h1>
+    <h1>Test for HVML-FPM (ECHO)</h1>
 
     <p>The key-value pairs in _SERVER:</p>
     <ul>
@@ -13,7 +13,7 @@
                 <li>$?: $_SERVER[$?]</li>
             </iterate>
             <differ>
-                <li>&lt;NONE&gt;</li>
+                <li>&lt;EMPTY&gt;</li>
             </differ>
         </test>
     </ul>
@@ -25,7 +25,7 @@
                 <li>$?: $_GET[$?]</li>
             </iterate>
             <differ>
-                <li>&lt;NONE&gt;</li>
+                <li>&lt;EMPTY&gt;</li>
             </differ>
         </test>
     </ul>
@@ -37,7 +37,7 @@
                 <li>$?: $_COOKIE[$?]</li>
             </iterate>
             <differ>
-                <li>&lt;NONE&gt;</li>
+                <li>&lt;EMPTY&gt;</li>
             </differ>
         </test>
     </ul>
@@ -61,7 +61,7 @@
                 <li>$?: $DATA.serialize($_FILES[$?])</li>
             </iterate>
             <differ>
-                <li>&lt;NONE&gt;</li>
+                <li>&lt;EMPTY&gt;</li>
             </differ>
         </test>
     </ul>
@@ -73,10 +73,11 @@
                 <li>$?: $REQ[$?]</li>
             </iterate>
             <differ>
-                <li>&lt;NONE&gt;</li>
+                <li>&lt;EMPTY&gt;</li>
             </differ>
         </test>
     </ul>
 
   </body>
 </hvml>
+

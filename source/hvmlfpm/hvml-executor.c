@@ -71,7 +71,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
 
             struct purc_cor_exit_info *exit_info = data;
             if (purc_document_type(exit_info->doc) == PCDOC_K_TYPE_HTML) {
-                fprintf(stdout, "Content-type: text/html\r\n\r\n");
+                fprintf(stdout, "Content-Type: text/html\r\n\r\n");
 
                 unsigned opt = PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
                 opt |= PCDOC_SERIALIZE_OPT_UNDEF;
@@ -82,7 +82,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                         opt, runner_info->dump_stm);
             }
             else if (!purc_variant_is_null(exit_info->result)) {
-                fprintf(stdout, "Content-type: applicatin/json\r\n\r\n");
+                fprintf(stdout, "Content-Type: applicatin/json\r\n\r\n");
                 purc_variant_serialize(exit_info->result,
                         runner_info->dump_stm, 0, MY_VRT_OPTS, NULL);
             }
@@ -110,7 +110,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
         }
 
         if (purc_document_type(term_info->doc) == PCDOC_K_TYPE_HTML) {
-            fprintf(stdout, "Content-type: text/html\r\n\r\n");
+            fprintf(stdout, "Content-Type: text/html\r\n\r\n");
 
             unsigned opt = PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
             opt |= PCDOC_SERIALIZE_OPT_UNDEF;
@@ -174,11 +174,13 @@ check_post_content_type(const char *content_type, const char **boundary)
 
     *boundary = NULL;
     if (mime_len < whole_len) {
-        const char *extkv = mime + mime_len;
+        const char *extkv = mime + mime_len + 1;
         size_t key_len;
         extkv = pcutils_get_next_token(extkv, " =", &key_len);
-        if (key_len == 0 || extkv[key_len] != '=')
+        if (key_len == 0 || extkv[key_len] != '=') {
+            printf("No extra key value pair: %s\n", extkv);
             goto bad;
+        }
 
         if (strncasecmp2ltr(extkv, "charset", key_len) == 0) {
             const char *value = extkv + key_len + 1;
@@ -199,6 +201,7 @@ check_post_content_type(const char *content_type, const char **boundary)
 
     const char *subtype = type + type_len + 1;
     size_t subtype_len = mime_len - type_len - 1;
+
     if (strncasecmp2ltr(type, "application", type_len) == 0) {
         if (strncasecmp2ltr(subtype, "x-www-form-urlencoded", subtype_len) == 0) {
             ct = CT_FORM_URLENCODED;
@@ -211,7 +214,7 @@ check_post_content_type(const char *content_type, const char **boundary)
         }
     }
     else if (strncasecmp2ltr(type, "multipart", type_len) == 0 &&
-            strncasecmp2ltr(subtype, "form-data", subtype_len)) {
+            strncasecmp2ltr(subtype, "form-data", subtype_len) == 0) {
         ct = CT_FORM_DATA;
     }
     else if (strncasecmp2ltr(type, "text", type_len) == 0) {
@@ -559,6 +562,7 @@ static int make_request(struct request_info *info)
 
                     case CT_FORM_DATA:
                         if (boundary) {
+                            printf("boundary: %s\n", boundary);
                             parse_content_as_multipart_form_data(content_length,
                                     boundary, &info->post, &info->files);
                         }
