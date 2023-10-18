@@ -181,5 +181,5 @@ if (HAVE_INT128_VALUE)
 endif ()
 
 
-find_package(PurC 0.9.16 REQUIRED)
+find_package(PurC 0.9.17 REQUIRED)
 

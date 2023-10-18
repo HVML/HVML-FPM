@@ -44,11 +44,8 @@
 
 struct runner_info {
     bool verbose;
+    purc_coroutine_t main_crtn;
     purc_rwstream_t dump_stm;
-};
-
-struct crtn_info {
-    const char *url;
 };
 
 #define MY_VRT_OPTS \
@@ -64,40 +61,34 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
         assert(runner_info);
 
         if (runner_info->verbose) {
-            struct crtn_info *crtn_info = purc_coroutine_get_user_data(cor);
-            if (crtn_info) {
-                fprintf(stdout, "\nThe main coroutine exited.\n");
+            if (cor == runner_info->main_crtn) {
+                LOG_INFO("The main coroutine exited.\n");
             }
             else {
-                fprintf(stdout, "\nA child coroutine exited.\n");
+                LOG_INFO("A child coroutine exited.\n");
+                goto done;
             }
 
             struct purc_cor_exit_info *exit_info = data;
+            if (purc_document_type(exit_info->doc) == PCDOC_K_TYPE_HTML) {
+                fprintf(stdout, "Content-type: text/html\r\n\r\n");
 
-            unsigned opt = 0;
+                unsigned opt = PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
+                opt |= PCDOC_SERIALIZE_OPT_UNDEF;
+                opt |= PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
+                opt |= PCDOC_SERIALIZE_OPT_IGNORE_C0CTRLS;
 
-            opt |= PCDOC_SERIALIZE_OPT_UNDEF;
-            opt |= PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
-#ifndef NDEBUG
-            opt |= PCDOC_SERIALIZE_OPT_READABLE_C0CTRLS;
-#else
-            opt |= PCDOC_SERIALIZE_OPT_IGNORE_C0CTRLS;
-#endif
-
-            fprintf(stdout, ">> The document generated:\n");
-            purc_document_serialize_contents_to_stream(exit_info->doc,
-                    opt, runner_info->dump_stm);
-            fprintf(stdout, "\n");
-
-            fprintf(stdout, ">> The executed result:\n");
-            if (exit_info->result) {
+                purc_document_serialize_contents_to_stream(exit_info->doc,
+                        opt, runner_info->dump_stm);
+            }
+            else if (!purc_variant_is_null(exit_info->result)) {
+                fprintf(stdout, "Content-type: applicatin/json\r\n\r\n");
                 purc_variant_serialize(exit_info->result,
                         runner_info->dump_stm, 0, MY_VRT_OPTS, NULL);
             }
             else {
-                fprintf(stdout, "<INVALID VALUE>");
+                /* The HVML script takes the control of the response */
             }
-            fprintf(stdout, "\n");
         }
     }
     else if (event == PURC_COND_COR_TERMINATED) {
@@ -106,41 +97,38 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                 (uintptr_t *)(void *)&runner_info, NULL);
         assert(runner_info);
 
-        if (runner_info->verbose) {
-            struct purc_cor_term_info *term_info = data;
+        struct purc_cor_term_info *term_info = data;
+        if (cor == runner_info->main_crtn) {
+            LOG_INFO("The main coroutine terminated due to "
+                    "an uncaught exception: %s.\n",
+                    purc_atom_to_string(term_info->except));
+        }
+        else {
+            LOG_INFO("child coroutine terminated due to "
+                    "an uncaught exception: %s.\n",
+                    purc_atom_to_string(term_info->except));
+        }
 
-            unsigned opt = 0;
+        if (purc_document_type(term_info->doc) == PCDOC_K_TYPE_HTML) {
+            fprintf(stdout, "Content-type: text/html\r\n\r\n");
+
+            unsigned opt = PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
             opt |= PCDOC_SERIALIZE_OPT_UNDEF;
             opt |= PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
-#ifndef NDEBUG
-            opt |= PCDOC_SERIALIZE_OPT_READABLE_C0CTRLS;
-#else
             opt |= PCDOC_SERIALIZE_OPT_IGNORE_C0CTRLS;
-#endif
 
-            fprintf(stdout, ">> The document generated:\n");
             purc_document_serialize_contents_to_stream(term_info->doc,
                     opt, runner_info->dump_stm);
-            fprintf(stdout, "\n");
+        }
 
-            struct crtn_info *crtn_info = purc_coroutine_get_user_data(cor);
-            if (crtn_info) {
-                fprintf(stdout,
-                        "\nThe main coroutine terminated due to an uncaught exception: %s.\n",
-                        purc_atom_to_string(term_info->except));
-            }
-            else {
-                fprintf(stdout,
-                        "\nA child coroutine terminated due to an uncaught exception: %s.\n",
-                        purc_atom_to_string(term_info->except));
-            }
-
+        if (runner_info->verbose) {
             fprintf(stdout, ">> The executing stack frame(s):\n");
             purc_coroutine_dump_stack(cor, runner_info->dump_stm);
             fprintf(stdout, "\n");
         }
     }
 
+done:
     return 0;
 }
 
@@ -527,14 +515,14 @@ static int make_request(struct request_info *info)
     else if (strcasecmp(method, "POST") == 0) {
         uint32_t tmp;
         purc_variant_cast_to_uint32(
-                purc_variant_object_get_by_ckey(info->server, "CONTENT_LENGTH"),
-                &tmp, false);
+                purc_variant_object_get_by_ckey(info->server,
+                    "CONTENT_LENGTH"), &tmp, false);
         size_t content_length = (size_t)tmp;
 
         if (content_length > 0) {
             const char *content_type =
-                purc_variant_get_string_const(
-                        purc_variant_object_get_by_ckey(info->server, "CONTENT_TYPE"));
+                purc_variant_get_string_const(purc_variant_object_get_by_ckey(
+                            info->server, "CONTENT_TYPE"));
 
             if (content_type) {
                 enum post_content_type ct;
@@ -586,21 +574,36 @@ static int make_request(struct request_info *info)
 
     if (info->get == PURC_VARIANT_INVALID)
         info->get = purc_variant_make_object_0();
-    if (info->post == PURC_VARIANT_INVALID)
+    if (info->post == PURC_VARIANT_INVALID) {
         info->post = purc_variant_make_object_0();
+        printf("make an empty object for post\n");
+    }
     if (info->cookie == PURC_VARIANT_INVALID)
         info->cookie = purc_variant_make_object_0();
-    if (info->files == PURC_VARIANT_INVALID)
+    if (info->files == PURC_VARIANT_INVALID) {
         info->files = purc_variant_make_object_0();
+        printf("make an empty object for file\n");
+    }
 
     info->request = purc_variant_make_object_0();
     /* merge properties of GET, POST, and COOKIE to request */
-    purc_variant_object_unite(info->request, info->get,
+    ssize_t nr = purc_variant_object_unite(info->request, info->get,
             PCVRNT_CR_METHOD_OVERWRITE);
-    purc_variant_object_unite(info->request, info->post,
+    if (nr < 0) {
+        LOG_WARN("Failed to unite GET to REQ.\n");
+    }
+
+    nr = purc_variant_object_unite(info->request, info->post,
             PCVRNT_CR_METHOD_OVERWRITE);
-    purc_variant_object_unite(info->request, info->cookie,
+    if (nr < 0) {
+        LOG_WARN("Failed to unite POST to REQ.\n");
+    }
+
+    nr = purc_variant_object_unite(info->request, info->cookie,
             PCVRNT_CR_METHOD_OVERWRITE);
+    if (nr < 0) {
+        LOG_WARN("Failed to unite COOKIE to REQ.\n");
+    }
 
     const char *script_name =
         purc_variant_get_string_const(
@@ -666,11 +669,10 @@ int hvml_executor(const char *app, bool verbose)
             break;
         }
 
-        struct crtn_info crtn_info = { };
         purc_coroutine_t cor = purc_schedule_vdom(request_info.vdom, 0,
                 request_info.request,
                 PCRDR_PAGE_TYPE_NULL, NULL, NULL, NULL,
-                NULL, NULL, &crtn_info);
+                NULL, NULL, NULL);
 
         /* bind _SERVER */
         if (!purc_coroutine_bind_variable(cor, HVML_VAR_SERVER,
@@ -711,6 +713,9 @@ int hvml_executor(const char *app, bool verbose)
                     purc_get_error_message(purc_get_last_error()));
             break;
         }
+
+        struct runner_info runner_info = { verbose, cor, dump_stm };
+        purc_set_local_data(RUNNER_INFO_NAME, (uintptr_t)&runner_info, NULL);
 
         purc_run((purc_cond_handler)prog_cond_handler);
 

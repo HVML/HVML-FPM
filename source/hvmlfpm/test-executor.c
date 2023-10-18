@@ -49,7 +49,7 @@ int FCGI_Accept(void)
         line = fgets(buf, sizeof(buf), stdin);
 
         if (line == NULL)
-            break;
+            goto finish;
         if (strncmp(line, "---", 3) == 0)
             break;
         if (line[0] == '#')
@@ -57,7 +57,7 @@ int FCGI_Accept(void)
 
         char *value = strchr(line, ':');
         if (value == NULL)
-            goto failed;
+            goto finish;
 
         value[0] = '\0';
         value++;
@@ -73,7 +73,7 @@ int FCGI_Accept(void)
 
     return 0;
 
-failed:
+finish:
     return -1;
 }
 
