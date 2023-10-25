@@ -13,6 +13,42 @@ This program uses source code from
 
 ## Usage
 
+```console
+$ hvmlfpm -h
+Usage: hvmlfpm [options]
+
+hvml-fpm v0.0.1 (ipv6) - the FastCGI process manager for HVML
+
+Options:
+ -A <app_name>  HVML app name
+ -d <directory> chdir to directory before spawning
+ -a <address>   bind to IPv4/IPv6 address (defaults to 0.0.0.0)
+ -p <port>      bind to TCP-port
+ -s <path>      bind to Unix domain socket
+ -M <mode>      change Unix domain socket mode (octal integer, default: allow
+                read+write for user and group as far as umask allows it)
+ -F <children>  number of children to fork (default 1)
+ -b <backlog>   backlog to allow on the socket (default 1024)
+ -P <path>      name of PID-file for spawned process (ignored in no-fork mode)
+ -n             no fork (for daemontools)
+ -v             show version
+ -?, -h         show this help
+(root only)
+ -c <directory> chroot to directory
+ -S             create socket before chroot() (default is to create the socket
+                in the chroot)
+ -u <user>      change to user-id
+ -g <group>     change to group-id (default: primary group of user if -u
+                is given)
+ -U <user>      change Unix domain socket owner to user-id
+ -G <group>     change Unix domain socket group to group-id
+```
+
+For example, you can start an HVML-FPM daemon for HVML app `cn.fmsoft.hvml.purc` with the following command line:
+
+```console
+$ sudo hvmlfpm -A cn.fmsoft.hvml.purc -s /var/run/hvmlfpm-cn.fmsoft.hvml.purc.sock -U www-data -G www-data
+```
 
 ## Copying
 

@@ -494,7 +494,7 @@ static void show_version () {
 
 static void show_help () {
     (void) write_all(1, CONST_STR_LEN(
-        "Usage: hvml-fpm [options]\n" \
+        "Usage: hvmlfpm [options]\n" \
         "\n" \
         PACKAGE_DESC \
         "\n" \
