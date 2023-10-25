@@ -36,9 +36,7 @@
 #include "config.h"
 #include "hvml-executor.h"
 #include "mpart-body-processor.h"
-#define NO_FCGI_DEFINES
 #include "libfcgi/fcgi_stdio.h"
-#undef NO_FCGI_DEFINES
 
 #define RUNNER_INFO_NAME    "runner-data"
 
@@ -69,6 +67,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                 goto done;
             }
 
+            fprintf(stdout, "Status: 200 OK\r\n");
             struct purc_cor_exit_info *exit_info = data;
             if (purc_document_type(exit_info->doc) == PCDOC_K_TYPE_HTML) {
                 fprintf(stdout, "Content-Type: text/html\r\n\r\n");
@@ -263,7 +262,7 @@ static purc_variant_t parse_content_as_form_urlencoded(size_t content_length)
 static ssize_t cb_stdio_write(void *ctxt, const void *buf, size_t count)
 {
     FILE *fp = ctxt;
-    return fwrite(buf, 1, count, fp);
+    return fwrite((void *)buf, 1, count, fp);
 }
 
 static ssize_t cb_stdio_read(void *ctxt, void *buf, size_t count)
@@ -639,7 +638,7 @@ static int make_request(struct request_info *info)
 
     const char *script_name =
         purc_variant_get_string_const(
-                purc_variant_object_get_by_ckey(info->server, "SCRIPT_NAME"));
+                purc_variant_object_get_by_ckey(info->server, "SCRIPT_FILENAME"));
     info->vdom = purc_load_hvml_from_file(script_name);
     if (info->vdom == NULL) {
         LOG_ERROR("Failed to load vDOM from %s.\n", script_name);

@@ -114,7 +114,7 @@ static int issetugid() {
 #define PACKAGE_FEATURES ""
 #endif
 
-#define PACKAGE_DESC "hvml-fpm v" PACKAGE_VERSION PACKAGE_FEATURES " - spawns FastCGI processes\n"
+#define PACKAGE_DESC "hvml-fpm v" PACKAGE_VERSION PACKAGE_FEATURES " - the FastCGI process manager for HVML\n"
 
 #define CONST_STR_LEN(s) s, sizeof(s) - 1
 
@@ -282,7 +282,7 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
     return fcgi_fd;
 }
 
-static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int fork_count, int child_count, int pid_fd, int nofork) {
+static int fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd, int fork_count, int pid_fd, int nofork) {
     int status, rc = 0;
     struct timeval tv = { 0, 100 * 1000 };
 
@@ -298,17 +298,19 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
 
         switch (child) {
         case 0: {
-            char cgi_childs[64];
             int max_fd = 0;
 
             int i = 0;
 
+#if 0 /* VW: removed */
             if (child_count >= 0) {
+                char cgi_childs[64];
                 snprintf(cgi_childs, sizeof(cgi_childs), "PHP_FCGI_CHILDREN=%d", child_count);
                 putenv(cgi_childs);
             }
+#endif
 
-            if(fcgi_fd != FCGI_LISTENSOCK_FILENO) {
+            if (fcgi_fd != FCGI_LISTENSOCK_FILENO) {
                 close(FCGI_LISTENSOCK_FILENO);
                 dup2(fcgi_fd, FCGI_LISTENSOCK_FILENO);
                 close(fcgi_fd);
@@ -333,7 +335,7 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
                 if (i != FCGI_LISTENSOCK_FILENO) close(i);
             }
 
-#if 0
+#if 0   /* VW: removed */
             /* fork and replace shell */
             if (appArgv) {
                 execv(appArgv[0], appArgv);
@@ -351,11 +353,9 @@ static int fcgi_spawn_connection(char *appPath, char **appArgv, int fcgi_fd, int
             /* in nofork mode stderr is still open */
             fprintf(stderr, "hvml-fpm: exec failed: %s\n", strerror(errno));
             exit(errno);
-
-#else
-            hvml_executor(appPath, true);
-            (void)appArgv;
 #endif
+            hvml_executor(hvmlApp, true);
+            (void)appArgv;
             break;
         }
         case -1:
@@ -494,21 +494,18 @@ static void show_version () {
 
 static void show_help () {
     (void) write_all(1, CONST_STR_LEN(
-        "Usage: hvml-fpm [options] [-- <fcgiapp> [fcgi app arguments]]\n" \
+        "Usage: hvml-fpm [options]\n" \
         "\n" \
         PACKAGE_DESC \
         "\n" \
         "Options:\n" \
-        " -f <path>      filename of the fcgi-application (deprecated; ignored if\n" \
-        "                <fcgiapp> is given; needs /bin/sh)\n" \
+        " -A <app_name>  HVML app name\n" \
         " -d <directory> chdir to directory before spawning\n" \
         " -a <address>   bind to IPv4/IPv6 address (defaults to 0.0.0.0)\n" \
         " -p <port>      bind to TCP-port\n" \
         " -s <path>      bind to Unix domain socket\n" \
         " -M <mode>      change Unix domain socket mode (octal integer, default: allow\n" \
         "                read+write for user and group as far as umask allows it) \n" \
-        " -C <children>  (PHP only) numbers of childs to spawn (default: not setting\n" \
-        "                the PHP_FCGI_CHILDREN environment variable - PHP defaults to 0)\n" \
         " -F <children>  number of children to fork (default 1)\n" \
         " -b <backlog>   backlog to allow on the socket (default 1024)\n" \
         " -P <path>      name of PID-file for spawned process (ignored in no-fork mode)\n" \
@@ -529,15 +526,13 @@ static void show_help () {
 
 
 int main(int argc, char **argv) {
-    char *fcgi_app = NULL, *changeroot = NULL, *username = NULL,
+    char *hvml_app = NULL, *changeroot = NULL, *username = NULL,
          *groupname = NULL, *unixsocket = NULL, *pid_file = NULL,
          *sockusername = NULL, *sockgroupname = NULL, *fcgi_dir = NULL,
          *addr = NULL;
-    char **fcgi_app_argv = { NULL };
     char *endptr = NULL;
     unsigned short port = 0;
     mode_t sockmode =  (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) & ~read_umask();
-    int child_count = -1;
     int fork_count = 1;
     int backlog = 1024;
     int i_am_root, o;
@@ -554,9 +549,9 @@ int main(int argc, char **argv) {
 
     i_am_root = (getuid() == 0);
 
-    while (-1 != (o = getopt(argc, argv, "c:d:f:g:?hna:p:b:u:vC:F:s:P:U:G:M:S"))) {
+    while (-1 != (o = getopt(argc, argv, "c:d:A:g:?hna:p:b:u:vC:F:s:P:U:G:M:S"))) {
         switch(o) {
-        case 'f': fcgi_app = optarg; break;
+        case 'A': hvml_app = optarg; break;
         case 'd': fcgi_dir = optarg; break;
         case 'a': addr = optarg;/* ip addr */ break;
         case 'p': port = strtol(optarg, &endptr, 10);/* port */
@@ -565,7 +560,6 @@ int main(int argc, char **argv) {
                 return -1;
             }
             break;
-        case 'C': child_count = strtol(optarg, NULL, 10);/*  */ break;
         case 'F': fork_count = strtol(optarg, NULL, 10);/*  */ break;
         case 'b': backlog = strtol(optarg, NULL, 10);/*  */ break;
         case 's': unixsocket = optarg; /* unix-domain socket */ break;
@@ -587,12 +581,15 @@ int main(int argc, char **argv) {
         }
     }
 
+#if 0 /* VW: removed */
+    char **fcgi_app_argv = { NULL };
     if (optind < argc) {
         fcgi_app_argv = &argv[optind];
     }
+#endif
 
-    if (NULL == fcgi_app && NULL == fcgi_app_argv) {
-        fprintf(stderr, "hvml-fpm: no FastCGI application given\n");
+    if (NULL == hvml_app) {
+        fprintf(stderr, "hvml-fpm: no HVML app name given\n");
         return -1;
     }
 
@@ -721,5 +718,5 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    return fcgi_spawn_connection(fcgi_app, fcgi_app_argv, fcgi_fd, fork_count, child_count, pid_fd, nofork);
+    return fcgi_spawn_connection(hvml_app, NULL, fcgi_fd, fork_count, pid_fd, nofork);
 }
