@@ -14,7 +14,6 @@ if (NOT HAS_RUN_HVMLFPM_COMMON)
     endif ()
 
     set(Python_ADDITIONAL_VERSIONS 3)
-    find_package(PythonInterp 2.7.0 REQUIRED)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
     # -----------------------------------------------------------------------------
