@@ -60,10 +60,10 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
 
         if (runner_info->verbose) {
             if (cor == runner_info->main_crtn) {
-                LOG_INFO("The main coroutine exited.\n");
+                HFLOG_INFO("The main coroutine exited.\n");
             }
             else {
-                LOG_INFO("A child coroutine exited.\n");
+                HFLOG_INFO("A child coroutine exited.\n");
                 goto done;
             }
 
@@ -98,12 +98,12 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
 
         struct purc_cor_term_info *term_info = data;
         if (cor == runner_info->main_crtn) {
-            LOG_INFO("The main coroutine terminated due to "
+            HFLOG_INFO("The main coroutine terminated due to "
                     "an uncaught exception: %s.\n",
                     purc_atom_to_string(term_info->except));
         }
         else {
-            LOG_INFO("child coroutine terminated due to "
+            HFLOG_INFO("child coroutine terminated due to "
                     "an uncaught exception: %s.\n",
                     purc_atom_to_string(term_info->except));
         }
@@ -243,17 +243,17 @@ static purc_variant_t parse_content_as_form_urlencoded(size_t content_length)
 
             v = purc_make_object_from_query_string(buf, true);
             if (v == PURC_VARIANT_INVALID) {
-                LOG_ERROR("Failed when parsing content.\n");
+                HFLOG_ERROR("Failed when parsing content.\n");
             }
         }
         else {
-            LOG_ERROR("Mismatched content length and content got.\n");
+            HFLOG_ERROR("Mismatched content length and content got.\n");
         }
 
         free(buf);
     }
     else {
-        LOG_ERROR("Failed to allocate memory to hold content.\n");
+        HFLOG_ERROR("Failed to allocate memory to hold content.\n");
     }
 
     return v;
@@ -283,7 +283,7 @@ static purc_variant_t parse_content_as_json(size_t content_length)
         purc_rwstream_destroy(stm);
     }
     else {
-        LOG_ERROR("Failed when making stream from stdio\n");
+        HFLOG_ERROR("Failed when making stream from stdio\n");
     }
 
     return v;
@@ -307,17 +307,17 @@ static purc_variant_t parse_content_as_plain(size_t content_length)
             v = purc_variant_make_string_reuse_buff(buf, content_length + 1,
                     true);
             if (v == PURC_VARIANT_INVALID) {
-                LOG_ERROR("Failed when make string from content.\n");
+                HFLOG_ERROR("Failed when make string from content.\n");
                 goto failed;
             }
         }
         else {
-            LOG_ERROR("Mismatched content length and content got.\n");
+            HFLOG_ERROR("Mismatched content length and content got.\n");
             goto failed;
         }
     }
     else {
-        LOG_ERROR("Failed to allocate memory to hold content.\n");
+        HFLOG_ERROR("Failed to allocate memory to hold content.\n");
     }
 
     return v;
@@ -489,7 +489,7 @@ static int make_request(struct request_info *info)
             }
 
             if (tmp == PURC_VARIANT_INVALID) {
-                LOG_ERROR("Failed when making an variant for %s\n",
+                HFLOG_ERROR("Failed when making an variant for %s\n",
                         meta_vars[i].name);
                 goto failed;
             }
@@ -497,7 +497,7 @@ static int make_request(struct request_info *info)
         else if (meta_vars[i].type == VT_ULONG) {
             tmp = purc_variant_make_ulongint(0);
             if (tmp == PURC_VARIANT_INVALID) {
-                LOG_ERROR("Failed when making a ulong 0 variant for %s\n",
+                HFLOG_ERROR("Failed when making a ulong 0 variant for %s\n",
                         meta_vars[i].name);
                 goto failed;
             }
@@ -508,7 +508,7 @@ static int make_request(struct request_info *info)
                     meta_vars[i].name, tmp);
             purc_variant_unref(tmp);
             if (!success) {
-                LOG_ERROR("Failed when making a property for %s\n",
+                HFLOG_ERROR("Failed when making a property for %s\n",
                         meta_vars[i].name);
                 goto failed;
             }
@@ -526,7 +526,7 @@ static int make_request(struct request_info *info)
         if (query) {
             info->get = purc_make_object_from_query_string(query, true);
             if (info->get == PURC_VARIANT_INVALID) {
-                LOG_ERROR("Failed when parsing query string\n");
+                HFLOG_ERROR("Failed when parsing query string\n");
                 goto failed;
             }
         }
@@ -549,7 +549,7 @@ static int make_request(struct request_info *info)
                 ct = check_post_content_type(content_type, &boundary);
 
                 if (ct <= 0) {
-                    LOG_ERROR("not supported content type: %s\n", content_type);
+                    HFLOG_ERROR("not supported content type: %s\n", content_type);
                     goto failed;
                 }
 
@@ -566,7 +566,7 @@ static int make_request(struct request_info *info)
                                     boundary, &info->post, &info->files);
                         }
                         else {
-                            LOG_ERROR("No boundary defined.\n");
+                            HFLOG_ERROR("No boundary defined.\n");
                             goto failed;
                         }
                         break;
@@ -585,12 +585,12 @@ static int make_request(struct request_info *info)
                         break;
 
                     case CT_BAD:
-                        LOG_ERROR("Bad content type.\n");
+                        HFLOG_ERROR("Bad content type.\n");
                         goto failed;
                         break;
 
                     case CT_NOT_SUPPORTED:
-                        LOG_ERROR("Not supported content type.\n");
+                        HFLOG_ERROR("Not supported content type.\n");
                         goto failed;
                         break;
                 }
@@ -621,19 +621,19 @@ static int make_request(struct request_info *info)
     ssize_t nr = purc_variant_object_unite(info->request, info->get,
             PCVRNT_CR_METHOD_OVERWRITE);
     if (nr < 0) {
-        LOG_WARN("Failed to unite GET to REQ.\n");
+        HFLOG_WARN("Failed to unite GET to REQ.\n");
     }
 
     nr = purc_variant_object_unite(info->request, info->post,
             PCVRNT_CR_METHOD_OVERWRITE);
     if (nr < 0) {
-        LOG_WARN("Failed to unite POST to REQ.\n");
+        HFLOG_WARN("Failed to unite POST to REQ.\n");
     }
 
     nr = purc_variant_object_unite(info->request, info->cookie,
             PCVRNT_CR_METHOD_OVERWRITE);
     if (nr < 0) {
-        LOG_WARN("Failed to unite COOKIE to REQ.\n");
+        HFLOG_WARN("Failed to unite COOKIE to REQ.\n");
     }
 
     const char *script_name =
@@ -641,7 +641,7 @@ static int make_request(struct request_info *info)
                 purc_variant_object_get_by_ckey(info->server, "SCRIPT_FILENAME"));
     info->vdom = purc_load_hvml_from_file(script_name);
     if (info->vdom == NULL) {
-        LOG_ERROR("Failed to load vDOM from %s.\n", script_name);
+        HFLOG_ERROR("Failed to load vDOM from %s.\n", script_name);
         goto failed;
     }
 
@@ -695,7 +695,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         struct request_info request_info = { };
 
         if ((ret = make_request(&request_info))) {
-            LOG_WARN("Failed to parse the request: %s\n",
+            HFLOG_WARN("Failed to parse the request: %s\n",
                     purc_get_error_message(purc_get_last_error()));
             continue;
         }
@@ -705,7 +705,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
                 PCRDR_PAGE_TYPE_NULL, NULL, NULL, NULL,
                 NULL, NULL, NULL);
         if (cor == NULL) {
-            LOG_ERROR("Failed to schedule a new vDOM: %s\n",
+            HFLOG_ERROR("Failed to schedule a new vDOM: %s\n",
                     purc_get_error_message(purc_get_last_error()));
             goto fatal;
         }
@@ -713,7 +713,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         /* bind _SERVER */
         if (!purc_coroutine_bind_variable(cor, HVML_VAR_SERVER,
                     request_info.server)) {
-            LOG_ERROR("Failed to bind " HVML_VAR_SERVER ": %s\n",
+            HFLOG_ERROR("Failed to bind " HVML_VAR_SERVER ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
             goto fatal;
         }
@@ -721,7 +721,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         /* bind _GET */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_GET, request_info.get)) {
-            LOG_ERROR("Failed to bind " HVML_VAR_GET ": %s\n",
+            HFLOG_ERROR("Failed to bind " HVML_VAR_GET ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
             goto fatal;
         }
@@ -729,7 +729,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         /* bind _POST */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_POST, request_info.post)) {
-            LOG_ERROR("Failed to bind " HVML_VAR_POST ":%s\n",
+            HFLOG_ERROR("Failed to bind " HVML_VAR_POST ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             goto fatal;
         }
@@ -737,7 +737,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         /* bind _COOKIE */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_COOKIE, request_info.cookie)) {
-            LOG_ERROR("Failed to bind " HVML_VAR_COOKIE ":%s\n",
+            HFLOG_ERROR("Failed to bind " HVML_VAR_COOKIE ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             goto fatal;
         }
@@ -745,7 +745,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         /* bind _FILES */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_FILES, request_info.files)) {
-            LOG_ERROR("Failed to bind " HVML_VAR_FILES ":%s\n",
+            HFLOG_ERROR("Failed to bind " HVML_VAR_FILES ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             goto fatal;
         }
@@ -754,7 +754,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         purc_set_local_data(RUNNER_INFO_NAME, (uintptr_t)&runner_info, NULL);
 
         if (purc_run((purc_cond_handler)prog_cond_handler)) {
-            LOG_ERROR("Failed purc_run(): %s\n",
+            HFLOG_ERROR("Failed purc_run(): %s\n",
                     purc_get_error_message(purc_get_last_error()));
             goto fatal;
         }
@@ -763,23 +763,24 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
 
         nr_executed++;
         if (nr_executed > max_executions) {
-            LOG_WARN("The number of total executions exceeds the limit (%d)\n",
+            HFLOG_WARN("The number of total executions exceeds the limit (%d)\n",
                     max_executions);
             goto quit;
         }
 
     } /* while */
 
+    HFLOG_ERROR("Failed FCGI_Accept()\n");
     purc_cleanup();
     purc_rwstream_destroy(dump_stm);
-    return 0;
+    return EXIT_FAILURE;
 
 quit:
-    LOG_ERROR("Quitting due to resource limit...\n");
-    return 1;
+    HFLOG_ERROR("Quitting due to resource limit...\n");
+    return 0;
 
 fatal:
-    LOG_ERROR("Encountered an unrecoverable error; exit...\n");
-    return 2;
+    HFLOG_ERROR("Encountered an unrecoverable error; exit...\n");
+    return 1;
 }
 

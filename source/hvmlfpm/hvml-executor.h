@@ -49,23 +49,23 @@
 #define HTTP_UPLOAD_FILE_TEMPLATE   HTTP_UPLOAD_PATH "hvml-XXXXXX";
 
 #ifdef NDEBUG
-#   define LOG_DEBUG(x, ...)
+#   define HFLOG_DEBUG(x, ...)
 #else
-#   define LOG_DEBUG(x, ...)   \
+#   define HFLOG_DEBUG(x, ...)   \
     purc_log_debug("%s: " x, __func__, ##__VA_ARGS__)
 #endif /* not defined NDEBUG */
 
-#ifdef LOG_ERROR
-#   undef LOG_ERROR
+#ifdef HFLOG_ERROR
+#   undef HFLOG_ERROR
 #endif
 
-#define LOG_ERROR(x, ...)   \
+#define HFLOG_ERROR(x, ...)   \
     purc_log_error("%s: " x, __func__, ##__VA_ARGS__)
 
-#define LOG_WARN(x, ...)    \
+#define HFLOG_WARN(x, ...)    \
     purc_log_warn("%s: " x, __func__, ##__VA_ARGS__)
 
-#define LOG_INFO(x, ...)    \
+#define HFLOG_INFO(x, ...)    \
     purc_log_info("%s: " x, __func__, ##__VA_ARGS__)
 
 #ifdef __cplusplus

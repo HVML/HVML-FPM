@@ -38,7 +38,7 @@ static void add_new_header(mpart_body_processor *processor)
 {
     assert(processor->last_header_name && processor->last_header_value);
 
-    LOG_DEBUG("Got a new header: %s: %s\n",
+    HFLOG_DEBUG("Got a new header: %s: %s\n",
             processor->last_header_name, processor->last_header_value);
     kvlist_set(processor->headers, processor->last_header_name,
             &processor->last_header_value);
@@ -449,7 +449,7 @@ static int part_data_end_cb(multipart_parser *p)
         processor->fp = NULL;
     }
     else if (processor->data) {
-        LOG_DEBUG("Got a data for `%s`: `%s`\n", processor->name, processor->data);
+        HFLOG_DEBUG("Got a data for `%s`: `%s`\n", processor->name, processor->data);
         purc_variant_t tmp = purc_variant_make_string(processor->data, true);
         purc_variant_object_set_by_ckey(processor->post, processor->name, tmp);
         purc_variant_unref(tmp);
@@ -497,11 +497,11 @@ parse_content_as_multipart_form_data(size_t content_length,
         size_t n = fread(buf, 1, sizeof(buf), stdin);
 
         size_t consumed = multipart_parser_execute(processor.parser, buf, n);
-        LOG_DEBUG("Consumed bytes by the parser: %u (got %u)\n",
+        HFLOG_DEBUG("Consumed bytes by the parser: %u (got %u)\n",
                 (unsigned)consumed, (unsigned)n);
 
         if (consumed < n) {
-            LOG_ERROR("Failed multipart_parser_execute().\n");
+            HFLOG_ERROR("Failed multipart_parser_execute().\n");
             break;
         }
 
@@ -512,7 +512,7 @@ parse_content_as_multipart_form_data(size_t content_length,
     } while (true);
 
     if (nr_bytes < content_length) {
-        LOG_ERROR("Mismatched content length and content got.\n");
+        HFLOG_ERROR("Mismatched content length and content got.\n");
     }
 
     *post = processor.post;
