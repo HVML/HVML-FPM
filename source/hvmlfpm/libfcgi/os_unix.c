@@ -340,7 +340,7 @@ int OS_CreateLocalIpcFd(const char *bindPath, int backlog)
         fprintf(stderr, "you must choose one explicitly!!!\n");
         exit(1);
       }
-      tcp_ia = ((struct in_addr *) (hep->h_addr))->s_addr;
+      tcp_ia = ((struct in_addr *)(void *)(hep->h_addr))->s_addr;
     }
       }
 
