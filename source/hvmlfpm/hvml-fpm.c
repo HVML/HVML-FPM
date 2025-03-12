@@ -427,6 +427,9 @@ fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd,
 
                 break;
             case -1:
+                fprintf(stderr,
+                        "hvml-fpm: failed waitpid(): %s\n",
+                        strerror(errno));
                 break;
             default:
                 if (WIFEXITED(status)) {
@@ -449,10 +452,18 @@ fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd,
         }
     }
 
+    if (-1 != pid_fd) {
+        close(pid_fd);
+    }
+
+    close(fcgi_fd);
     return rc;
 }
 
-static int find_user_group(const char *user, const char *group, uid_t *uid, gid_t *gid, const char **username) {
+static int
+find_user_group(const char *user, const char *group, uid_t *uid, gid_t *gid,
+        const char **username)
+{
     uid_t my_uid = 0;
     gid_t my_gid = 0;
     struct passwd *my_pwd = NULL;
@@ -512,13 +523,15 @@ static int find_user_group(const char *user, const char *group, uid_t *uid, gid_
     return 0;
 }
 
-static void show_version () {
+static void show_version (void)
+{
     (void) write_all(1, CONST_STR_LEN(
         PACKAGE_DESC
     ));
 }
 
-static void show_help () {
+static void show_help (void)
+{
     (void) write_all(1, CONST_STR_LEN(
         "Usage: hvmlfpm [options]\n" \
         "\n" \
@@ -552,7 +565,8 @@ static void show_help () {
 }
 
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     char *hvml_app = NULL, *changeroot = NULL, *username = NULL,
          *groupname = NULL, *unixsocket = NULL, *pid_file = NULL,
          *sockusername = NULL, *sockgroupname = NULL, *fcgi_dir = NULL,
@@ -769,6 +783,10 @@ int main(int argc, char **argv) {
         return -1;
     }
 
+#if 1
+    return fcgi_spawn_connection(hvml_app, NULL, fcgi_fd, fork_count,
+                pid_fd, nofork, max_executions);
+#else
     int rc;
     do {
         rc = fcgi_spawn_connection(hvml_app, NULL, fcgi_fd, fork_count,
@@ -776,25 +794,37 @@ int main(int argc, char **argv) {
         if (rc)
             break;
 
+        /* fork only one new child */
+        fork_count = 0;
+
         if (!nofork) {
             int status;
             pid_t pid = waitpid(-1, &status, 0);
+            printf("hvml-fpm: return value of waitpid(): %d\n", pid);
+
+            if (pid == -1) {
+                fprintf(stderr, "hvml-fpm: failed waitpid(): %s\n",
+                        strerror(errno));
+                break;
+            }
+
             if (WIFEXITED(status)) {
-                fprintf(stderr, "hvml-fpm: child (%u) exited with: %d\n",
+                fprintf(stderr, "hvml-fpm: child (%d) exited with: %d\n",
                         pid, WEXITSTATUS(status));
+                continue;
             }
             else if (WIFSIGNALED(status)) {
-                fprintf(stderr, "hvml-fpm: child (%u) signaled : %d\n",
+                fprintf(stderr, "hvml-fpm: child (%d) signaled : %d\n",
                         pid, WTERMSIG(status));
+                break;
             }
             else {
                 fprintf(stderr,
-                        "hvml-fpm: child (%u) died somehow: exit status = %d\n",
+                        "hvml-fpm: child (%d) died somehow: exit status = %d\n",
                         pid, status);
+                break;
             }
 
-            /* fork a new child */
-            fork_count = 1;
         }
     } while (!nofork);
 
@@ -804,4 +834,6 @@ int main(int argc, char **argv) {
 
     close(fcgi_fd);
     return rc;
+#endif
 }
+

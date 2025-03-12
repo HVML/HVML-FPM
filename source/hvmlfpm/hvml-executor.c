@@ -775,7 +775,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
     return 0;
 
 quit:
-    LOG_ERROR("Quitting...\n");
+    LOG_ERROR("Quitting due to resource limit...\n");
     return 1;
 
 fatal:
