@@ -118,13 +118,16 @@ static int issetugid() {
 
 #define CONST_STR_LEN(s) s, sizeof(s) - 1
 
-static mode_t read_umask(void) {
+static mode_t read_umask(void)
+{
     mode_t mask = umask(0);
     umask(mask);
     return mask;
 }
 
-static ssize_t write_all(int fildes, const void *buf, size_t nbyte) {
+static ssize_t
+write_all(int fildes, const void *buf, size_t nbyte)
+{
     size_t rem;
     for (rem = nbyte; rem > 0;) {
         ssize_t res = write(fildes, buf, rem);
@@ -138,7 +141,10 @@ static ssize_t write_all(int fildes, const void *buf, size_t nbyte) {
     return nbyte;
 }
 
-static int bind_socket(const char *addr, unsigned short port, const char *unixsocket, uid_t uid, gid_t gid, mode_t mode, int backlog) {
+static int
+bind_socket(const char *addr, unsigned short port, const char *unixsocket,
+        uid_t uid, gid_t gid, mode_t mode, int backlog)
+{
     int fcgi_fd, socket_type, val;
 
     struct sockaddr_un fcgi_addr_un;
@@ -162,16 +168,19 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
         servlen = SUN_LEN(&fcgi_addr_un);
 #else
         /* stevens says: */
-        servlen = strlen(fcgi_addr_un.sun_path) + sizeof(fcgi_addr_un.sun_family);
+        servlen = strlen(fcgi_addr_un.sun_path) +
+            sizeof(fcgi_addr_un.sun_family);
 #endif
         socket_type = AF_UNIX;
         fcgi_addr = (struct sockaddr *) &fcgi_addr_un;
 
         /* check if some backend is listening on the socket
-         * as if we delete the socket-file and rebind there will be no "socket already in use" error
+         * as if we delete the socket-file and rebind there will be no
+         * "socket already in use" error.
          */
         if (-1 == (fcgi_fd = socket(socket_type, SOCK_STREAM, 0))) {
-            fprintf(stderr, "hvml-fpm: couldn't create socket: %s\n", strerror(errno));
+            fprintf(stderr, "hvml-fpm: couldn't create socket: %s\n",
+                    strerror(errno));
             return -1;
         }
 
@@ -187,7 +196,8 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
             case ENOENT:
                 break;
             default:
-                fprintf(stderr, "hvml-fpm: removing old socket failed: %s\n", strerror(errno));
+                fprintf(stderr, "hvml-fpm: removing old socket failed: %s\n",
+                        strerror(errno));
                 close(fcgi_fd);
                 return -1;
             }
@@ -221,12 +231,15 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
             fcgi_addr = (struct sockaddr *) &fcgi_addr_in6;
 #endif
         } else {
-            fprintf(stderr, "hvml-fpm: '%s' is not a valid IP address\n", addr);
+            fprintf(stderr, "hvml-fpm: '%s' is not a valid IP address\n",
+                    addr);
             return -1;
 #else
         } else {
-            if ((in_addr_t)(-1) == (fcgi_addr_in.sin_addr.s_addr = inet_addr(addr))) {
-                fprintf(stderr, "hvml-fpm: '%s' is not a valid IPv4 address\n", addr);
+            if ((in_addr_t)(-1) == (fcgi_addr_in.sin_addr.s_addr =
+                        inet_addr(addr))) {
+                fprintf(stderr, "hvml-fpm: '%s' is not a valid IPv4 address\n",
+                        addr);
                 return -1;
             }
 #endif
@@ -235,13 +248,15 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
 
 
     if (-1 == (fcgi_fd = socket(socket_type, SOCK_STREAM, 0))) {
-        fprintf(stderr, "hvml-fpm: couldn't create socket: %s\n", strerror(errno));
+        fprintf(stderr, "hvml-fpm: couldn't create socket: %s\n",
+                strerror(errno));
         return -1;
     }
 
     val = 1;
     if (setsockopt(fcgi_fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0) {
-        fprintf(stderr, "hvml-fpm: couldn't set SO_REUSEADDR: %s\n", strerror(errno));
+        fprintf(stderr, "hvml-fpm: couldn't set SO_REUSEADDR: %s\n",
+                strerror(errno));
         close(fcgi_fd);
         return -1;
     }
@@ -254,7 +269,8 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
 
     if (unixsocket) {
         if (-1 == chmod(unixsocket, mode)) {
-            fprintf(stderr, "hvml-fpm: couldn't chmod socket: %s\n", strerror(errno));
+            fprintf(stderr, "hvml-fpm: couldn't chmod socket: %s\n",
+                    strerror(errno));
             close(fcgi_fd);
             unlink(unixsocket);
             return -1;
@@ -264,7 +280,8 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
             if (0 == uid) uid = -1;
             if (0 == gid) gid = -1;
             if (-1 == chown(unixsocket, uid, gid)) {
-                fprintf(stderr, "hvml-fpm: couldn't chown socket: %s\n", strerror(errno));
+                fprintf(stderr, "hvml-fpm: couldn't chown socket: %s\n",
+                        strerror(errno));
                 close(fcgi_fd);
                 unlink(unixsocket);
                 return -1;
@@ -282,7 +299,10 @@ static int bind_socket(const char *addr, unsigned short port, const char *unixso
     return fcgi_fd;
 }
 
-static int fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd, int fork_count, int pid_fd, int nofork) {
+static int
+fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd,
+        int fork_count, int pid_fd, int nofork, int max_executions)
+{
     int status, rc = 0;
     struct timeval tv = { 0, 100 * 1000 };
 
@@ -322,11 +342,16 @@ static int fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd, int
 
                 max_fd = open("/dev/null", O_RDWR);
                 if (-1 != max_fd) {
-                    if (max_fd != STDOUT_FILENO) dup2(max_fd, STDOUT_FILENO);
-                    if (max_fd != STDERR_FILENO) dup2(max_fd, STDERR_FILENO);
-                    if (max_fd != STDOUT_FILENO && max_fd != STDERR_FILENO) close(max_fd);
+                    if (max_fd != STDOUT_FILENO)
+                        dup2(max_fd, STDOUT_FILENO);
+                    if (max_fd != STDERR_FILENO)
+                        dup2(max_fd, STDERR_FILENO);
+                    if (max_fd != STDOUT_FILENO && max_fd != STDERR_FILENO)
+                        close(max_fd);
                 } else {
-                    fprintf(stderr, "hvml-fpm: couldn't open and redirect stdout/stderr to '/dev/null': %s\n", strerror(errno));
+                    fprintf(stderr, "hvml-fpm: couldn't open and redirect "
+                            "stdout/stderr to '/dev/null': %s\n",
+                            strerror(errno));
                 }
             }
 
@@ -354,7 +379,7 @@ static int fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd, int
             fprintf(stderr, "hvml-fpm: exec failed: %s\n", strerror(errno));
             exit(errno);
 #endif
-            hvml_executor(hvmlApp, true);
+            hvml_executor(hvmlApp, max_executions, true);
             (void)appArgv;
             break;
         }
@@ -370,7 +395,9 @@ static int fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd, int
 
             switch (waitpid(child, &status, WNOHANG)) {
             case 0:
-                fprintf(stdout, "hvml-fpm: child spawned successfully: PID: %d\n", child);
+                fprintf(stdout,
+                        "hvml-fpm: child spawned successfully: PID: %d\n",
+                        child);
 
                 /* write pid file */
                 if (-1 != pid_fd) {
@@ -380,14 +407,18 @@ static int fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd, int
                     snprintf(pidbuf, sizeof(pidbuf) - 1, "%d", child);
 
                     if (-1 == write_all(pid_fd, pidbuf, strlen(pidbuf))) {
-                        fprintf(stderr, "hvml-fpm: writing pid file failed: %s\n", strerror(errno));
+                        fprintf(stderr,
+                                "hvml-fpm: writing pid file failed: %s\n",
+                                strerror(errno));
                         close(pid_fd);
                         pid_fd = -1;
                     }
                     /* avoid eol for the last one */
                     if (-1 != pid_fd && fork_count != 0) {
                         if (-1 == write_all(pid_fd, "\n", 1)) {
-                            fprintf(stderr, "hvml-fpm: writing pid file failed: %s\n", strerror(errno));
+                            fprintf(stderr,
+                                    "hvml-fpm: writing pid file failed: %s\n",
+                                    strerror(errno));
                             close(pid_fd);
                             pid_fd = -1;
                         }
@@ -407,8 +438,9 @@ static int fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd, int
                         WTERMSIG(status));
                     rc = 1;
                 } else {
-                    fprintf(stderr, "hvml-fpm: child died somehow: exit status = %d\n",
-                        status);
+                    fprintf(stderr,
+                            "hvml-fpm: child died somehow: exit status = %d\n",
+                            status);
                     rc = status;
                 }
             }
@@ -416,12 +448,6 @@ static int fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd, int
             break;
         }
     }
-
-    if (-1 != pid_fd) {
-        close(pid_fd);
-    }
-
-    close(fcgi_fd);
 
     return rc;
 }
@@ -510,6 +536,7 @@ static void show_help () {
         " -b <backlog>   backlog to allow on the socket (default 1024)\n" \
         " -P <path>      name of PID-file for spawned process (ignored in no-fork mode)\n" \
         " -n             no fork (for daemontools)\n" \
+        " -e             the maximum number of total executions (default 1000)\n" \
         " -v             show version\n" \
         " -?, -h         show this help\n" \
         "(root only)\n" \
@@ -534,6 +561,7 @@ int main(int argc, char **argv) {
     unsigned short port = 0;
     mode_t sockmode =  (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) & ~read_umask();
     int fork_count = 1;
+    int max_executions = 1000;
     int backlog = 1024;
     int i_am_root, o;
     int pid_fd = -1;
@@ -549,7 +577,7 @@ int main(int argc, char **argv) {
 
     i_am_root = (getuid() == 0);
 
-    while (-1 != (o = getopt(argc, argv, "c:d:A:g:?hna:p:b:u:vC:F:s:P:U:G:M:S"))) {
+    while (-1 != (o = getopt(argc, argv, "c:d:A:g:?hna:p:b:u:vC:F:e:s:P:U:G:M:S"))) {
         switch(o) {
         case 'A': hvml_app = optarg; break;
         case 'd': fcgi_dir = optarg; break;
@@ -561,6 +589,7 @@ int main(int argc, char **argv) {
             }
             break;
         case 'F': fork_count = strtol(optarg, NULL, 10);/*  */ break;
+        case 'e': max_executions = strtol(optarg, NULL, 10);/*  */ break;
         case 'b': backlog = strtol(optarg, NULL, 10);/*  */ break;
         case 's': unixsocket = optarg; /* unix-domain socket */ break;
         case 'c': if (i_am_root) { changeroot = optarg; }/* chroot() */ break;
@@ -597,25 +626,29 @@ int main(int argc, char **argv) {
         fprintf(stderr, "hvml-fpm: no socket given (use either -p or -s)\n");
         return -1;
     } else if (0 != port && NULL != unixsocket) {
-        fprintf(stderr, "hvml-fpm: either a Unix domain socket or a TCP-port, but not both\n");
+        fprintf(stderr, "hvml-fpm: either a Unix domain socket or a TCP-port, "
+                "but not both\n");
         return -1;
     }
 
     if (unixsocket && strlen(unixsocket) > sizeof(un.sun_path) - 1) {
-        fprintf(stderr, "hvml-fpm: path of the Unix domain socket is too long\n");
+        fprintf(stderr, "hvml-fpm: path of the Unix domain socket is "
+                "too long\n");
         return -1;
     }
 
     /* SUID handling */
     if (!i_am_root && issetugid()) {
-        fprintf(stderr, "hvml-fpm: Are you nuts? Don't apply a SUID bit to this binary\n");
+        fprintf(stderr, "hvml-fpm: Are you nuts? Don't apply a SUID bit to "
+                "this binary\n");
         return -1;
     }
 
     if (nofork) pid_file = NULL; /* ignore pid file in no-fork mode */
 
     if (pid_file &&
-        (-1 == (pid_fd = open(pid_file, O_WRONLY | O_CREAT | O_EXCL | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)))) {
+        (-1 == (pid_fd = open(pid_file, O_WRONLY | O_CREAT | O_EXCL | O_TRUNC,
+                              S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)))) {
         struct stat st;
         if (errno != EEXIST) {
             fprintf(stderr, "hvml-fpm: opening PID-file '%s' failed: %s\n",
@@ -634,12 +667,13 @@ int main(int argc, char **argv) {
         /* is it a regular file ? */
 
         if (!S_ISREG(st.st_mode)) {
-            fprintf(stderr, "hvml-fpm: PID-file exists and isn't regular file: '%s'\n",
-                pid_file);
+            fprintf(stderr, "hvml-fpm: PID-file exists and isn't regular file:"
+                    "'%s'\n", pid_file);
             return -1;
         }
 
-        if (-1 == (pid_fd = open(pid_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH))) {
+        if (-1 == (pid_fd = open(pid_file, O_WRONLY | O_CREAT | O_TRUNC,
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH))) {
             fprintf(stderr, "hvml-fpm: opening PID-file '%s' failed: %s\n",
                 pid_file, strerror(errno));
             return -1;
@@ -651,20 +685,27 @@ int main(int argc, char **argv) {
         gid_t gid, sockgid;
         const char* real_username;
 
-        if (-1 == find_user_group(username, groupname, &uid, &gid, &real_username))
+        if (-1 == find_user_group(username, groupname, &uid, &gid,
+                    &real_username))
             return -1;
 
-        if (-1 == find_user_group(sockusername, sockgroupname, &sockuid, &sockgid, NULL))
+        if (-1 == find_user_group(sockusername, sockgroupname, &sockuid,
+                    &sockgid, NULL))
             return -1;
 
         if (uid != 0 && gid == 0) {
-            fprintf(stderr, "hvml-fpm: WARNING: couldn't find the user for uid %i and no group was specified, so only the user privileges will be dropped\n", (int) uid);
+            fprintf(stderr, "hvml-fpm: WARNING: couldn't find the user for "
+                    "uid %i and no group was specified, so only the user "
+                    "privileges will be dropped\n", (int)uid);
         }
 
-        if (0 == sockuid) sockuid = uid;
-        if (0 == sockgid) sockgid = gid;
+        if (0 == sockuid)
+            sockuid = uid;
+        if (0 == sockgid)
+            sockgid = gid;
 
-        if (sockbeforechroot && -1 == (fcgi_fd = bind_socket(addr, port, unixsocket, sockuid, sockgid, sockmode, backlog)))
+        if (sockbeforechroot && -1 == (fcgi_fd = bind_socket(addr, port,
+                        unixsocket, sockuid, sockgid, sockmode, backlog)))
             return -1;
 
         /* Change group before chroot, when we have access
@@ -672,16 +713,20 @@ int main(int argc, char **argv) {
          */
         if (gid != 0) {
             if (-1 == setgid(gid)) {
-                fprintf(stderr, "hvml-fpm: setgid(%i) failed: %s\n", (int) gid, strerror(errno));
+                fprintf(stderr, "hvml-fpm: setgid(%i) failed: %s\n",
+                        (int)gid, strerror(errno));
                 return -1;
             }
             if (-1 == setgroups(0, NULL)) {
-                fprintf(stderr, "hvml-fpm: setgroups(0, NULL) failed: %s\n", strerror(errno));
+                fprintf(stderr, "hvml-fpm: setgroups(0, NULL) failed: %s\n",
+                        strerror(errno));
                 return -1;
             }
             if (real_username) {
                 if (-1 == initgroups(real_username, gid)) {
-                    fprintf(stderr, "hvml-fpm: initgroups('%s', %i) failed: %s\n", real_username, (int) gid, strerror(errno));
+                    fprintf(stderr, "hvml-fpm: initgroups('%s', %i) "
+                            "failed: %s\n", real_username, (int)gid,
+                            strerror(errno));
                     return -1;
                 }
             }
@@ -689,34 +734,74 @@ int main(int argc, char **argv) {
 
         if (changeroot) {
             if (-1 == chroot(changeroot)) {
-                fprintf(stderr, "hvml-fpm: chroot('%s') failed: %s\n", changeroot, strerror(errno));
+                fprintf(stderr, "hvml-fpm: chroot('%s') failed: %s\n",
+                        changeroot, strerror(errno));
                 return -1;
             }
             if (-1 == chdir("/")) {
-                fprintf(stderr, "hvml-fpm: chdir('/') failed: %s\n", strerror(errno));
+                fprintf(stderr, "hvml-fpm: chdir('/') failed: %s\n",
+                        strerror(errno));
                 return -1;
             }
         }
 
-        if (!sockbeforechroot && -1 == (fcgi_fd = bind_socket(addr, port, unixsocket, sockuid, sockgid, sockmode, backlog)))
+        if (!sockbeforechroot && -1 == (fcgi_fd = bind_socket(addr, port,
+                        unixsocket, sockuid, sockgid, sockmode, backlog)))
             return -1;
 
         /* drop root privs */
         if (uid != 0) {
             if (-1 == setuid(uid)) {
-                fprintf(stderr, "hvml-fpm: setuid(%i) failed: %s\n", (int) uid, strerror(errno));
+                fprintf(stderr, "hvml-fpm: setuid(%i) failed: %s\n",
+                        (int)uid, strerror(errno));
                 return -1;
             }
         }
     } else {
-        if (-1 == (fcgi_fd = bind_socket(addr, port, unixsocket, 0, 0, sockmode, backlog)))
+        if (-1 == (fcgi_fd = bind_socket(addr, port, unixsocket, 0, 0,
+                        sockmode, backlog)))
             return -1;
     }
 
     if (fcgi_dir && -1 == chdir(fcgi_dir)) {
-        fprintf(stderr, "hvml-fpm: chdir('%s') failed: %s\n", fcgi_dir, strerror(errno));
+        fprintf(stderr, "hvml-fpm: chdir('%s') failed: %s\n",
+                fcgi_dir, strerror(errno));
         return -1;
     }
 
-    return fcgi_spawn_connection(hvml_app, NULL, fcgi_fd, fork_count, pid_fd, nofork);
+    int rc;
+    do {
+        rc = fcgi_spawn_connection(hvml_app, NULL, fcgi_fd, fork_count,
+                pid_fd, nofork, max_executions);
+        if (rc)
+            break;
+
+        if (!nofork) {
+            int status;
+            pid_t pid = waitpid(-1, &status, 0);
+            if (WIFEXITED(status)) {
+                fprintf(stderr, "hvml-fpm: child (%u) exited with: %d\n",
+                        pid, WEXITSTATUS(status));
+            }
+            else if (WIFSIGNALED(status)) {
+                fprintf(stderr, "hvml-fpm: child (%u) signaled : %d\n",
+                        pid, WTERMSIG(status));
+            }
+            else {
+                fprintf(stderr,
+                        "hvml-fpm: child (%u) died somehow: exit status = %d\n",
+                        pid, status);
+            }
+
+            /* fork a new child */
+            fork_count = 1;
+        }
+    } while (!nofork);
+
+    if (-1 != pid_fd) {
+        close(pid_fd);
+    }
+
+    close(fcgi_fd);
+    return rc;
 }

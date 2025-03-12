@@ -79,7 +79,7 @@ int main(int argc, const char *argv[])
 {
     (void)argc;
     (void)argv;
-    hvml_executor("cn.fmsoft.hybridos.test", true);
+    hvml_executor("cn.fmsoft.hybridos.test", 0, true);
     return EXIT_SUCCESS;
 }
 

@@ -72,7 +72,7 @@
 extern "C" {
 #endif
 
-int hvml_executor(const char *app, bool verbose);
+int hvml_executor(const char *app, int max_executions, bool verbose);
 
 #ifdef __cplusplus
 }

@@ -652,7 +652,7 @@ failed:
     return -1;
 }
 
-int hvml_executor(const char *app, bool verbose)
+int hvml_executor(const char *app, int max_executions, bool verbose)
 {
     unsigned int modules = 0;
     modules = (PURC_MODULE_HVML | PURC_MODULE_PCRDR) | PURC_HAVE_FETCHER_R;
@@ -690,27 +690,32 @@ int hvml_executor(const char *app, bool verbose)
         purc_enable_log_ex(PURC_LOG_MASK_DEFAULT, PURC_LOG_FACILITY_SYSLOG);
     }
 
-    size_t nr_executed = 0;
+    int nr_executed = 0;
     while (FCGI_Accept() >= 0) {
         struct request_info request_info = { };
 
         if ((ret = make_request(&request_info))) {
-            LOG_ERROR("Failed to parse the request: %s\n",
+            LOG_WARN("Failed to parse the request: %s\n",
                     purc_get_error_message(purc_get_last_error()));
-            break;
+            continue;
         }
 
         purc_coroutine_t cor = purc_schedule_vdom(request_info.vdom, 0,
                 request_info.request,
                 PCRDR_PAGE_TYPE_NULL, NULL, NULL, NULL,
                 NULL, NULL, NULL);
+        if (cor == NULL) {
+            LOG_ERROR("Failed to schedule a new vDOM: %s\n",
+                    purc_get_error_message(purc_get_last_error()));
+            goto fatal;
+        }
 
         /* bind _SERVER */
         if (!purc_coroutine_bind_variable(cor, HVML_VAR_SERVER,
                     request_info.server)) {
             LOG_ERROR("Failed to bind " HVML_VAR_SERVER ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
-            break;
+            goto fatal;
         }
 
         /* bind _GET */
@@ -718,7 +723,7 @@ int hvml_executor(const char *app, bool verbose)
                     HVML_VAR_GET, request_info.get)) {
             LOG_ERROR("Failed to bind " HVML_VAR_GET ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
-            break;
+            goto fatal;
         }
 
         /* bind _POST */
@@ -726,7 +731,7 @@ int hvml_executor(const char *app, bool verbose)
                     HVML_VAR_POST, request_info.post)) {
             LOG_ERROR("Failed to bind " HVML_VAR_POST ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
-            break;
+            goto fatal;
         }
 
         /* bind _COOKIE */
@@ -734,7 +739,7 @@ int hvml_executor(const char *app, bool verbose)
                     HVML_VAR_COOKIE, request_info.cookie)) {
             LOG_ERROR("Failed to bind " HVML_VAR_COOKIE ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
-            break;
+            goto fatal;
         }
 
         /* bind _FILES */
@@ -742,22 +747,39 @@ int hvml_executor(const char *app, bool verbose)
                     HVML_VAR_FILES, request_info.files)) {
             LOG_ERROR("Failed to bind " HVML_VAR_FILES ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
-            break;
+            goto fatal;
         }
 
         struct runner_info runner_info = { verbose, cor, dump_stm };
         purc_set_local_data(RUNNER_INFO_NAME, (uintptr_t)&runner_info, NULL);
 
-        purc_run((purc_cond_handler)prog_cond_handler);
+        if (purc_run((purc_cond_handler)prog_cond_handler)) {
+            LOG_ERROR("Failed purc_run(): %s\n",
+                    purc_get_error_message(purc_get_last_error()));
+            goto fatal;
+        }
 
         release_request(&request_info);
 
         nr_executed++;
+        if (nr_executed > max_executions) {
+            LOG_WARN("The number of total executions exceeds the limit (%d)\n",
+                    max_executions);
+            goto quit;
+        }
 
     } /* while */
 
     purc_cleanup();
     purc_rwstream_destroy(dump_stm);
     return 0;
+
+quit:
+    LOG_ERROR("Quitting...\n");
+    return 1;
+
+fatal:
+    LOG_ERROR("Encountered an unrecoverable error; exit...\n");
+    return 2;
 }
 
