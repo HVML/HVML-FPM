@@ -82,7 +82,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                         opt, runner_info->dump_stm);
             }
             else if (!purc_variant_is_null(exit_info->result)) {
-                fprintf(stdout, "Content-Type: applicatin/json\r\n\r\n");
+                fprintf(stdout, "Content-Type: application/json\r\n\r\n");
                 purc_variant_serialize(exit_info->result,
                         runner_info->dump_stm, 0, MY_VRT_OPTS, NULL);
             }
