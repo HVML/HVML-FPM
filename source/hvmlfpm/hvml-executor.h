@@ -28,7 +28,7 @@
 #include <purc/purc.h>
 
 #define DEF_RDR_URI_HEADLESS    "file:///dev/null"
-#define HVML_RUN_NAME           "http%u"
+#define HVML_RUN_NAME           "fpmworker%u"
 
 /* The reserved variables */
 #define HVML_VAR_SERVER         "_SERVER"
@@ -68,11 +68,14 @@
 #define HFLOG_INFO(x, ...)    \
     purc_log_info("%s: " x, __func__, ##__VA_ARGS__)
 
+#define EXIT_RETRY      1
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int hvml_executor(const char *app, int max_executions, bool verbose);
+int hvml_executor(const char *app, const char *init_script,
+        const char *script_query, int max_executions, bool verbose);
 
 #ifdef __cplusplus
 }

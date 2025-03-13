@@ -32,6 +32,7 @@
 #include <limits.h>
 #include <assert.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #include "config.h"
 #include "hvml-executor.h"
@@ -652,7 +653,84 @@ failed:
     return -1;
 }
 
-int hvml_executor(const char *app, int max_executions, bool verbose)
+static int init_cond_handler(purc_cond_k event, purc_coroutine_t cor,
+        void *data)
+{
+    if (event == PURC_COND_COR_ONE_RUN) {
+        struct purc_cor_run_info *info = (struct purc_cor_run_info *)data;
+        if (info->run_idx > 0) {
+            HFLOG_ERROR("The initialization script CAN NOT use `observe`\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else if (event == PURC_COND_COR_EXITED) {
+        HFLOG_INFO("The initialization script exited.\n");
+    }
+    else if (event == PURC_COND_COR_TERMINATED) {
+        struct purc_cor_term_info *info = (struct purc_cor_term_info *)data;
+        HFLOG_ERROR("The initialization teminated due to `%s`\n",
+                purc_atom_to_string(info->except));
+
+        struct runner_info *runner_info = NULL;
+        purc_get_local_data(RUNNER_INFO_NAME,
+                (uintptr_t *)(void *)&runner_info, NULL);
+        assert(runner_info);
+
+        const char *content;
+        content = ">> The executing stack frame(s):\n";
+        purc_rwstream_write(runner_info->dump_stm, content, strlen(content));
+        purc_coroutine_dump_stack(cor, runner_info->dump_stm);
+        purc_rwstream_write(runner_info->dump_stm, "\n", 2); // with null byte.
+
+        content = purc_rwstream_get_mem_buffer(runner_info->dump_stm, NULL);
+        HFLOG_INFO("%s", content);
+    }
+
+    return 0;
+}
+
+static int run_init_script(const char *init_script, const char *script_query)
+{
+    int ret = -1;
+    purc_variant_t request = PURC_VARIANT_INVALID;
+
+    if (script_query) {
+        request = purc_make_object_from_query_string(script_query, false);
+    }
+
+    purc_vdom_t vdom = purc_load_hvml_from_file(init_script);
+    if (vdom == NULL) {
+        HFLOG_ERROR("Failed to load vDOM from %s.\n", init_script);
+        goto failed;
+    }
+
+    purc_coroutine_t cor = purc_schedule_vdom(vdom, 0,
+            request, PCRDR_PAGE_TYPE_NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL);
+    if (cor == NULL) {
+        HFLOG_ERROR("Failed to schedule the init script: %s\n",
+                purc_get_error_message(purc_get_last_error()));
+        goto failed;
+    }
+
+    if (purc_run((purc_cond_handler)init_cond_handler)) {
+        HFLOG_ERROR("Failed purc_run(): %s\n",
+                purc_get_error_message(purc_get_last_error()));
+        goto failed;
+    }
+
+    ret = 0;
+
+failed:
+    if (request) {
+        purc_variant_unref(request);
+    }
+
+    return ret;
+}
+
+int hvml_executor(const char *app, const char *init_script,
+        const char *script_query, int max_executions, bool verbose)
 {
     unsigned int modules = 0;
     modules = (PURC_MODULE_HVML | PURC_MODULE_PCRDR) | PURC_HAVE_FETCHER_R;
@@ -660,14 +738,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
     char runner[PURC_LEN_RUNNER_NAME + 1];
     int n = snprintf(runner, sizeof(runner), HVML_RUN_NAME, getpid());
     if (n < 0 || (size_t)n >= sizeof(runner)) {
-        fprintf(stderr, "Failed to make runner name.\n");
-        return EXIT_FAILURE;
-    }
-
-    purc_rwstream_t dump_stm;
-    dump_stm = purc_rwstream_new_for_dump(stdout, cb_stdio_write);
-    if (dump_stm == NULL) {
-        fprintf(stderr, "Failed to make rwstream on stdout.\n");
+        syslog(LOG_ERR, "Failed to make runner name.\n");
         return EXIT_FAILURE;
     }
 
@@ -677,7 +748,7 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
 
     int ret = purc_init_ex(modules, app, runner, &extra_info);
     if (ret != PURC_ERROR_OK) {
-        fprintf(stderr, "Failed to initialize the PurC instance: %s\n",
+        syslog(LOG_ERR, "Failed to initialize the PurC instance: %s\n",
             purc_get_error_message(ret));
         return EXIT_FAILURE;
     }
@@ -689,6 +760,31 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
     else {
         purc_enable_log_ex(PURC_LOG_MASK_DEFAULT, PURC_LOG_FACILITY_SYSLOG);
     }
+
+    ret = EXIT_FAILURE;
+
+    purc_rwstream_t dump_stm;
+    dump_stm = purc_rwstream_new_buffer(512, 4096);
+    if (dump_stm == NULL) {
+        HFLOG_ERROR("Failed to make rwstream for syslog.\n");
+        return EXIT_FAILURE;
+    }
+
+    struct runner_info runner_info = { verbose, NULL, dump_stm };
+    purc_set_local_data(RUNNER_INFO_NAME, (uintptr_t)&runner_info, NULL);
+
+    if (init_script) {
+        run_init_script(init_script, script_query);
+    }
+
+    purc_rwstream_destroy(dump_stm);
+    dump_stm = purc_rwstream_new_for_dump(stdout, cb_stdio_write);
+    if (dump_stm == NULL) {
+        HFLOG_ERROR("Failed to make rwstream on stdout.\n");
+        return EXIT_FAILURE;
+    }
+
+    runner_info.dump_stm = dump_stm;
 
     int nr_executed = 0;
     while (FCGI_Accept() >= 0) {
@@ -707,7 +803,8 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         if (cor == NULL) {
             HFLOG_ERROR("Failed to schedule a new vDOM: %s\n",
                     purc_get_error_message(purc_get_last_error()));
-            goto fatal;
+            ret = EXIT_RETRY;
+            break;
         }
 
         /* bind _SERVER */
@@ -715,7 +812,8 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
                     request_info.server)) {
             HFLOG_ERROR("Failed to bind " HVML_VAR_SERVER ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
-            goto fatal;
+            ret = EXIT_RETRY;
+            break;
         }
 
         /* bind _GET */
@@ -723,7 +821,8 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
                     HVML_VAR_GET, request_info.get)) {
             HFLOG_ERROR("Failed to bind " HVML_VAR_GET ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
-            goto fatal;
+            ret = EXIT_RETRY;
+            break;
         }
 
         /* bind _POST */
@@ -731,7 +830,8 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
                     HVML_VAR_POST, request_info.post)) {
             HFLOG_ERROR("Failed to bind " HVML_VAR_POST ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
-            goto fatal;
+            ret = EXIT_RETRY;
+            break;
         }
 
         /* bind _COOKIE */
@@ -739,7 +839,8 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
                     HVML_VAR_COOKIE, request_info.cookie)) {
             HFLOG_ERROR("Failed to bind " HVML_VAR_COOKIE ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
-            goto fatal;
+            ret = EXIT_RETRY;
+            break;
         }
 
         /* bind _FILES */
@@ -747,16 +848,16 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
                     HVML_VAR_FILES, request_info.files)) {
             HFLOG_ERROR("Failed to bind " HVML_VAR_FILES ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
-            goto fatal;
+            ret = EXIT_RETRY;
+            break;
         }
 
-        struct runner_info runner_info = { verbose, cor, dump_stm };
-        purc_set_local_data(RUNNER_INFO_NAME, (uintptr_t)&runner_info, NULL);
-
+        runner_info.main_crtn = cor;
         if (purc_run((purc_cond_handler)prog_cond_handler)) {
             HFLOG_ERROR("Failed purc_run(): %s\n",
                     purc_get_error_message(purc_get_last_error()));
-            goto fatal;
+            ret = EXIT_RETRY;
+            break;
         }
 
         release_request(&request_info);
@@ -765,22 +866,24 @@ int hvml_executor(const char *app, int max_executions, bool verbose)
         if (nr_executed > max_executions) {
             HFLOG_WARN("The number of total executions exceeds the limit (%d)\n",
                     max_executions);
-            goto quit;
+            ret = EXIT_SUCCESS;
+            break;
         }
 
     } /* while */
 
-    HFLOG_ERROR("Failed FCGI_Accept()\n");
+    if (ret == EXIT_FAILURE) {
+        HFLOG_ERROR("Failed FCGI_Accept(), quit...\n");
+    }
+    else if (ret == EXIT_SUCCESS) {
+        HFLOG_ERROR("Quitting due to resource limit...\n");
+    }
+    else {
+        HFLOG_ERROR("Encountered an unrecoverable error; exit...\n");
+    }
+
     purc_cleanup();
     purc_rwstream_destroy(dump_stm);
-    return EXIT_FAILURE;
-
-quit:
-    HFLOG_ERROR("Quitting due to resource limit...\n");
-    return 0;
-
-fatal:
-    HFLOG_ERROR("Encountered an unrecoverable error; exit...\n");
-    return 1;
+    return ret;
 }
 

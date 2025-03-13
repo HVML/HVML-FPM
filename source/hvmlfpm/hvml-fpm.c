@@ -301,8 +301,9 @@ bind_socket(const char *addr, unsigned short port, const char *unixsocket,
 }
 
 static int
-fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd,
-        int fork_count, int pid_fd, int max_executions)
+fcgi_spawn_connection(const char *hvmlApp, const char *initScript,
+        const char *scriptQuery, int fcgi_fd, int fork_count, int pid_fd,
+        int max_executions)
 {
     int status, rc = 0;
     struct timeval tv = { 0, 100 * 1000 };
@@ -347,8 +348,8 @@ fcgi_spawn_connection(char *hvmlApp, char **appArgv, int fcgi_fd,
                     close(i);
             }
 
-            exit(hvml_executor(hvmlApp, max_executions, true));
-            (void)appArgv;
+            exit(hvml_executor(hvmlApp, initScript, scriptQuery,
+                        max_executions, true));
         }
         else if (child > 0) {
             /* father */
@@ -495,28 +496,32 @@ static void show_help (void)
         PACKAGE_DESC \
         "\n" \
         "Options:\n" \
-        " -A <app_name>  HVML app name\n" \
-        " -d <directory> chdir to directory before spawning\n" \
-        " -a <address>   bind to IPv4/IPv6 address (defaults to 0.0.0.0)\n" \
-        " -p <port>      bind to TCP-port\n" \
-        " -s <path>      bind to Unix domain socket\n" \
-        " -M <mode>      change Unix domain socket mode (octal integer, default: allow\n" \
-        "                read+write for user and group as far as umask allows it) \n" \
-        " -F <children>  number of children to fork (default 1)\n" \
-        " -b <backlog>   backlog to allow on the socket (default 1024)\n" \
-        " -P <path>      name of PID-file for spawned process (ignored in no-fork mode)\n" \
-        " -e             the maximum number of total executions (default 1000)\n" \
-        " -v             show version\n" \
-        " -?, -h         show this help\n" \
+        " -A <app_name>     HVML app name\n"
+        " -i <init_script>  path of initialization script\n"
+        " -q <script_query> query for initialization script\n"
+        " -d <directory>    chdir to directory before spawning\n"
+        " -a <address>      bind to IPv4/IPv6 address (defaults to 0.0.0.0)\n"
+        " -p <port>         bind to TCP-port\n"
+        " -s <path>         bind to Unix domain socket\n"
+        " -M <mode>         change Unix domain socket mode (octal integer,\n"
+        "                       default: allow read+write for user and group\n"
+        "                       as far as umask allows it) \n"
+        " -F <children>     number of children to fork (default 1)\n"
+        " -b <backlog>      backlog to allow on the socket (default 1024)\n"
+        " -P <path>         name of PID-file for spawned worker processes\nn"
+        " -e                the maximum number of total executions"
+        "                       (default 1000)\n"
+        " -v                show version\n"
+        " -?, -h            show this help\n"
         "(root only)\n" \
-        " -c <directory> chroot to directory\n" \
-        " -S             create socket before chroot() (default is to create the socket\n" \
-        "                in the chroot)\n" \
-        " -u <user>      change to user-id\n" \
-        " -g <group>     change to group-id (default: primary group of user if -u\n" \
-        "                is given)\n" \
-        " -U <user>      change Unix domain socket owner to user-id\n" \
-        " -G <group>     change Unix domain socket group to group-id\n" \
+        " -c <directory>    chroot to directory\n"
+        " -S                create socket before chroot() (default is "
+        "                       to create the socket in the chroot)\n"
+        " -u <user>         change to user-id\n"
+        " -g <group>        change to group-id (default: primary group of"
+        "                       user if -u is given)\n"
+        " -U <user>         change Unix domain socket owner to user-id\n"
+        " -G <group>        change Unix domain socket group to group-id\n"
     ));
 }
 
@@ -550,7 +555,8 @@ static int daemonize(void)
 
 int main(int argc, char **argv)
 {
-    char *hvml_app = NULL, *changeroot = NULL, *username = NULL,
+    char *hvml_app = NULL, *init_script = NULL, *script_query = NULL,
+         *changeroot = NULL, *username = NULL,
          *groupname = NULL, *unixsocket = NULL, *pid_file = NULL,
          *sockusername = NULL, *sockgroupname = NULL, *fcgi_dir = NULL,
          *addr = NULL;
@@ -573,29 +579,42 @@ int main(int argc, char **argv)
 
     i_am_root = (getuid() == 0);
 
-    while (-1 != (o = getopt(argc, argv, "c:d:A:g:?ha:p:b:u:vC:F:e:s:P:U:G:M:S"))) {
+    while (-1 != (o = getopt(argc, argv,
+                    "c:d:A:i:q:g:?ha:p:b:u:vC:F:e:s:P:U:G:M:S"))) {
         switch(o) {
         case 'A': hvml_app = optarg; break;
+        case 'i': init_script = optarg; break;
+        case 'q': script_query = optarg; break;
         case 'd': fcgi_dir = optarg; break;
         case 'a': addr = optarg;/* ip addr */ break;
         case 'p': port = strtol(optarg, &endptr, 10);/* port */
             if (*endptr) {
-                fprintf(stderr, "hvml-fpm: invalid port: %u\n", (unsigned int) port);
+                fprintf(stderr, "hvml-fpm: invalid port: %u\n",
+                        (unsigned int)port);
                 return -1;
             }
             break;
-        case 'F': fork_count = strtol(optarg, NULL, 10);/*  */ break;
-        case 'e': max_executions = strtol(optarg, NULL, 10);/*  */ break;
-        case 'b': backlog = strtol(optarg, NULL, 10);/*  */ break;
-        case 's': unixsocket = optarg; /* unix-domain socket */ break;
-        case 'c': if (i_am_root) { changeroot = optarg; }/* chroot() */ break;
-        case 'u': if (i_am_root) { username = optarg; } /* set user */ break;
-        case 'g': if (i_am_root) { groupname = optarg; } /* set group */ break;
-        case 'U': if (i_am_root) { sockusername = optarg; } /* set socket user */ break;
-        case 'G': if (i_am_root) { sockgroupname = optarg; } /* set socket group */ break;
-        case 'S': if (i_am_root) { sockbeforechroot = 1; } /* open socket before chroot() */ break;
-        case 'M': sockmode = strtol(optarg, NULL, 8); /* set socket mode */ break;
-        case 'P': pid_file = optarg; /* PID file */ break;
+        case 'F': fork_count = strtol(optarg, NULL, 10); break;
+        case 'e': max_executions = strtol(optarg, NULL, 10); break;
+        case 'b': backlog = strtol(optarg, NULL, 10); break;
+        /* unix-domain socket */
+        case 's': unixsocket = optarg; break;
+        /* chroot() */
+        case 'c': if (i_am_root) { changeroot = optarg; } break;
+        /* set user */
+        case 'u': if (i_am_root) { username = optarg; } break;
+        /* set group */
+        case 'g': if (i_am_root) { groupname = optarg; } break;
+        /* set socket user */
+        case 'U': if (i_am_root) { sockusername = optarg; } break;
+        /* set socket group */
+        case 'G': if (i_am_root) { sockgroupname = optarg; } break;
+        /* open socket before chroot() */
+        case 'S': if (i_am_root) { sockbeforechroot = 1; } break;
+        /* set socket mode */ 
+        case 'M': sockmode = strtol(optarg, NULL, 8); break;
+        /* PID file */ 
+        case 'P': pid_file = optarg; break;
         case 'v': show_version(); return 0;
         case '?':
         case 'h': show_help(); return 0;
@@ -604,13 +623,6 @@ int main(int argc, char **argv)
             return -1;
         }
     }
-
-#if 0 /* VW: removed */
-    char **fcgi_app_argv = { NULL };
-    if (optind < argc) {
-        fcgi_app_argv = &argv[optind];
-    }
-#endif
 
     if (NULL == hvml_app) {
         fprintf(stderr, "hvml-fpm: no HVML app name given\n");
@@ -770,46 +782,48 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    openlog("hvml-fpm", LOG_PID, LOG_USER);
     int rc;
-    do {
-        // syslog(LOG_INFO, "call fcgi_spawn_connection(): %d\n", getpid());
-        rc = fcgi_spawn_connection(hvml_app, NULL, fcgi_fd, fork_count,
-                pid_fd, max_executions);
-        if (rc)
-            break;
+    openlog("hvml-fpm", LOG_PID, LOG_USER);
+    rc = fcgi_spawn_connection(hvml_app, init_script, script_query,
+            fcgi_fd, fork_count, pid_fd, max_executions);
+    if (rc) {
+        syslog(LOG_ERR, "Failed fcgi_spawn_connection(): %d\n", rc);
+        goto done;
+    }
 
-        /* fork only one new child */
-        fork_count = 1;
-
+    while (true) {
         int status;
-        // syslog(LOG_INFO, "calling waitpid(): %d\n", getpid());
         pid_t pid = waitpid(-1, &status, 0);
-        // syslog(LOG_INFO, "return value of waitpid(): %d\n", pid);
-
         if (pid == -1) {
             syslog(LOG_ERR, "Failed waitpid(): %s\n", strerror(errno));
             break;
         }
 
         if (WIFEXITED(status)) {
-            syslog(LOG_ERR, "Child (%d) exited with: %d\n",
-                    pid, WEXITSTATUS(status));
-            continue;
+            int exit_code = WEXITSTATUS(status);
+            syslog(LOG_ERR, "Child (%d) exited with: %d\n", pid, exit_code);
+
+            if (exit_code != EXIT_FAILURE) {
+                // fork a new child
+                rc = fcgi_spawn_connection(hvml_app, init_script, script_query,
+                        fcgi_fd, 1, pid_fd, max_executions);
+                if (rc) {
+                    syslog(LOG_ERR, "Failed fcgi_spawn_connection(): %d\n", rc);
+                    break;
+                }
+            }
         }
         else if (WIFSIGNALED(status)) {
             syslog(LOG_ERR, "Child (%d) signaled : %d\n",
                     pid, WTERMSIG(status));
-            break;
         }
         else {
             syslog(LOG_ERR, "Child (%d) died somehow: exit status = %d\n",
                     pid, status);
-            break;
         }
+    };
 
-    } while (true);
-
+done:
     closelog();
 
     if (-1 != pid_fd) {
