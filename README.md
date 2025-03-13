@@ -17,54 +17,59 @@ This program uses source code from
 $ hvmlfpm -h
 Usage: hvmlfpm [options]
 
-hvml-fpm v0.0.1 (ipv6) - the FastCGI process manager for HVML
+hvml-fpm v0.0.2 (ipv6) - the FastCGI process manager for HVML
 
 Options:
- -A <app_name>  HVML app name
- -d <directory> chdir to directory before spawning
- -a <address>   bind to IPv4/IPv6 address (defaults to 0.0.0.0)
- -p <port>      bind to TCP-port
- -s <path>      bind to Unix domain socket
- -M <mode>      change Unix domain socket mode (octal integer, default: allow
-                read+write for user and group as far as umask allows it)
- -F <children>  number of children to fork (default 1)
- -b <backlog>   backlog to allow on the socket (default 1024)
- -P <path>      name of PID-file for spawned process (ignored in no-fork mode)
- -n             no fork (for daemontools)
- -v             show version
- -?, -h         show this help
+ -A <app_name>     HVML app name
+ -i <init_script>  path of initialization script
+ -q <script_query> query for initialization script
+ -d <directory>    chdir to directory before spawning
+ -a <address>      bind to IPv4/IPv6 address (defaults to 0.0.0.0)
+ -p <port>         bind to TCP-port
+ -s <path>         bind to Unix domain socket
+ -M <mode>         change Unix domain socket mode (octal integer,
+                       default: allow read+write for user and group
+                       as far as umask allows it)
+ -F <children>     number of children to fork (default 1)
+ -b <backlog>      backlog to allow on the socket (default 1024)
+ -P <path>         name of PID-file for spawned worker processes
+ -e                the maximum number of total executions
+                       (default 1000)
+ -v                show version
+ -?, -h            show this help
 (root only)
- -c <directory> chroot to directory
- -S             create socket before chroot() (default is to create the socket
-                in the chroot)
- -u <user>      change to user-id
- -g <group>     change to group-id (default: primary group of user if -u
-                is given)
- -U <user>      change Unix domain socket owner to user-id
- -G <group>     change Unix domain socket group to group-id
+ -c <directory>    chroot to directory
+ -S                create socket before chroot() (default is
+                       to create the socket in the chroot)
+ -u <user>         change to user-id
+ -g <group>        change to group-id (default: primary group of
+                       user if -u is given)
+ -U <user>         change Unix domain socket owner to user-id
+ -G <group>        change Unix domain socket group to group-id
+
 ```
 
 For example, you can start an HVML-FPM daemon for HVML app `cn.fmsoft.hvml.purc` with the following command line:
 
 ```console
-$ sudo hvmlfpm -A cn.fmsoft.hvml.purc -s /var/run/hvmlfpm-cn.fmsoft.hvml.purc.sock -U www-data -G www-data
+$ sudo hvmlfpm -A cn.fmsoft.hvml.purc -s /var/run/hvmlfpm-cn.fmsoft.hvml.purc.sock -U www-data -G www-data -F 10
 ```
 
 ## Copying
 
-Copyright (C) 2023 [FMSoft Technologies]  
+Copyright (C) 2023 ~ 2025 [FMSoft Technologies]  
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
+it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public License
+You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ### spawn-fcgi
