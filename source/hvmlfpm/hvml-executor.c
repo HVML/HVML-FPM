@@ -773,8 +773,9 @@ int hvml_executor(const char *app, const char *init_script,
     struct runner_info runner_info = { verbose, NULL, dump_stm };
     purc_set_local_data(RUNNER_INFO_NAME, (uintptr_t)&runner_info, NULL);
 
-    if (init_script) {
-        run_init_script(init_script, script_query);
+    if (init_script && run_init_script(init_script, script_query)) {
+        HFLOG_ERROR("Failed run_init_script(); exit...\n");
+        return EXIT_FAILURE;
     }
 
     purc_rwstream_destroy(dump_stm);
