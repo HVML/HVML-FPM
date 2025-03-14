@@ -774,6 +774,12 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    if (init_script && access(init_script, R_OK)) {
+        fprintf(stderr, "hvml-fpm: can not read init script: %s\n",
+                init_script);
+        return -1;
+    }
+
     fprintf(stdout, "hvml-fpm: initialization succeed; "
             "going to be a daemon...\n");
     if (daemonize()) {
