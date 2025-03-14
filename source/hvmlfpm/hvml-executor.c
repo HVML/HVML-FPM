@@ -658,14 +658,14 @@ static int init_cond_handler(purc_cond_k event, purc_coroutine_t cor,
 {
     if (event == PURC_COND_COR_ONE_RUN) {
         struct purc_cor_run_info *info = (struct purc_cor_run_info *)data;
-        if (info->run_idx > 0) {
+        if (info->run_idx > 1) {
             HFLOG_ERROR("The initialization script CANNOT use `observe`: %zu\n",
                     info->run_idx);
             exit(EXIT_FAILURE);
         }
     }
     else if (event == PURC_COND_COR_EXITED) {
-        HFLOG_INFO("The initialization script exited.\n");
+        HFLOG_INFO("The initialization script exited; waiting for request.\n");
     }
     else if (event == PURC_COND_COR_TERMINATED) {
         struct purc_cor_term_info *info = (struct purc_cor_term_info *)data;
@@ -730,6 +730,19 @@ failed:
     return ret;
 }
 
+static void send_resp(int status_code)
+{
+    switch (status_code) {
+    case 400:
+        fprintf(stdout, "Status: 400 Bad Request\r\n");
+        break;
+    case 500:
+        fprintf(stdout, "Status: 500 Internal Server Error\r\n");
+        break;
+    }
+}
+
+
 int hvml_executor(const char *app, const char *init_script,
         const char *script_query, int max_executions, bool verbose)
 {
@@ -793,6 +806,7 @@ int hvml_executor(const char *app, const char *init_script,
         struct request_info request_info = { };
 
         if ((ret = make_request(&request_info))) {
+            send_resp(400);
             HFLOG_WARN("Failed to parse the request: %s\n",
                     purc_get_error_message(purc_get_last_error()));
             continue;
@@ -805,6 +819,7 @@ int hvml_executor(const char *app, const char *init_script,
         if (cor == NULL) {
             HFLOG_ERROR("Failed to schedule a new vDOM: %s\n",
                     purc_get_error_message(purc_get_last_error()));
+            send_resp(500);
             ret = EXIT_RETRY;
             break;
         }
@@ -812,6 +827,7 @@ int hvml_executor(const char *app, const char *init_script,
         /* bind _SERVER */
         if (!purc_coroutine_bind_variable(cor, HVML_VAR_SERVER,
                     request_info.server)) {
+            send_resp(500);
             HFLOG_ERROR("Failed to bind " HVML_VAR_SERVER ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
             ret = EXIT_RETRY;
@@ -821,6 +837,7 @@ int hvml_executor(const char *app, const char *init_script,
         /* bind _GET */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_GET, request_info.get)) {
+            send_resp(500);
             HFLOG_ERROR("Failed to bind " HVML_VAR_GET ": %s\n",
                     purc_get_error_message(purc_get_last_error()));
             ret = EXIT_RETRY;
@@ -830,6 +847,7 @@ int hvml_executor(const char *app, const char *init_script,
         /* bind _POST */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_POST, request_info.post)) {
+            send_resp(500);
             HFLOG_ERROR("Failed to bind " HVML_VAR_POST ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             ret = EXIT_RETRY;
@@ -839,6 +857,7 @@ int hvml_executor(const char *app, const char *init_script,
         /* bind _COOKIE */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_COOKIE, request_info.cookie)) {
+            send_resp(500);
             HFLOG_ERROR("Failed to bind " HVML_VAR_COOKIE ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             ret = EXIT_RETRY;
@@ -848,6 +867,7 @@ int hvml_executor(const char *app, const char *init_script,
         /* bind _FILES */
         if (!purc_coroutine_bind_variable(cor,
                     HVML_VAR_FILES, request_info.files)) {
+            send_resp(500);
             HFLOG_ERROR("Failed to bind " HVML_VAR_FILES ":%s\n",
                     purc_get_error_message(purc_get_last_error()));
             ret = EXIT_RETRY;
@@ -856,6 +876,7 @@ int hvml_executor(const char *app, const char *init_script,
 
         runner_info.main_crtn = cor;
         if (purc_run((purc_cond_handler)prog_cond_handler)) {
+            send_resp(500);
             HFLOG_ERROR("Failed purc_run(): %s\n",
                     purc_get_error_message(purc_get_last_error()));
             ret = EXIT_RETRY;
