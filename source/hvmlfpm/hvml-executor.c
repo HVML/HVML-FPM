@@ -659,7 +659,7 @@ static int init_cond_handler(purc_cond_k event, purc_coroutine_t cor,
 {
     if (event == PURC_COND_COR_ONE_RUN) {
         struct purc_cor_run_info *info = (struct purc_cor_run_info *)data;
-        if (info->run_idx > 1) {
+        if (info->run_idx > 0) {
             HFLOG_ERROR("The initialization script CANNOT use `observe`: %zu\n",
                     info->run_idx);
             exit(EXIT_FAILURE);
