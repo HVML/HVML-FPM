@@ -85,7 +85,6 @@ static char *StringCopy(const char *str)
     return newString;
 }
 
-
 /*
  *----------------------------------------------------------------------
  *
@@ -1332,6 +1331,21 @@ typedef struct FCGX_Stream_Data {
     int rawWrite;             /* writer: write data without stream headers */
     FCGX_Request *reqDataPtr; /* request data not specific to one stream */
 } FCGX_Stream_Data;
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * FCGX_GetFD --
+ *
+ *      Return the IPC file descriptor associated with the stream.
+ *
+ *----------------------------------------------------------------------
+ */
+int FCGX_GetFD(FCGX_Stream *stream)
+{
+    FCGX_Stream_Data *data = (FCGX_Stream_Data *)stream->data;
+    return data->reqDataPtr->ipcFd;
+}
 
 /*
  *----------------------------------------------------------------------

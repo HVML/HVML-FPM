@@ -751,8 +751,10 @@ FCGI_FILE *FCGI_tmpfile(void)
  */
 int FCGI_fileno(FCGI_FILE *fp)
 {
-    if(fp->stdio_stream)
+    if (fp->stdio_stream)
         return fileno(fp->stdio_stream);
+    else if (fp->fcgx_stream)       // VW
+        return FCGX_GetFD(fp->fcgx_stream);
     else
         return -1;
 }

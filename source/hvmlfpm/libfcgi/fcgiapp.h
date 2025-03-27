@@ -276,6 +276,20 @@ DLLAPI int FCGX_Accept(
 /*
  *----------------------------------------------------------------------
  *
+ * FCGX_GetFD --
+ *
+ *      Get the file descriptor of the stream.
+ *
+ * Results:
+ *	>= 0 for successful call, -1 for error.
+ *
+ *----------------------------------------------------------------------
+ */
+DLLAPI int FCGX_GetFD(FCGX_Stream *stream);
+
+/*
+ *----------------------------------------------------------------------
+ *
  * FCGX_Finish --
  *
  *      Finish the current request (NOT multi-thread safe).
