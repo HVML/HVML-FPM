@@ -134,6 +134,7 @@ done:
 }
 
 struct request_info {
+    purc_variant_t fcgifd;
     purc_variant_t server;
     purc_variant_t get;
     purc_variant_t post;
@@ -331,6 +332,10 @@ failed:
 
 static int release_request(struct request_info *info)
 {
+    if (info->fcgifd) {
+        purc_variant_unref(info->fcgifd);
+    }
+
     if (info->server) {
         purc_variant_unref(info->server);
     }
@@ -361,6 +366,8 @@ static int release_request(struct request_info *info)
 
 static int make_request(struct request_info *info)
 {
+    info->fcgifd = purc_variant_make_longint(fileno(stdout));
+
     info->server = purc_variant_make_object_0();
 
     static struct var_type {
@@ -821,6 +828,16 @@ int hvml_executor(const char *app, const char *init_script,
             HFLOG_ERROR("Failed to schedule a new vDOM: %s\n",
                     purc_get_error_message(purc_get_last_error()));
             send_resp(500);
+            ret = EXIT_RETRY;
+            break;
+        }
+
+        /* bind _FCGIFD */
+        if (!purc_coroutine_bind_variable(cor, HVML_VAR_FCGIFD,
+                    request_info.fcgifd)) {
+            send_resp(500);
+            HFLOG_ERROR("Failed to bind " HVML_VAR_FCGIFD ": %s\n",
+                    purc_get_error_message(purc_get_last_error()));
             ret = EXIT_RETRY;
             break;
         }

@@ -31,6 +31,7 @@
 #define HVML_RUN_NAME           "fpmworker%u"
 
 /* The reserved variables */
+#define HVML_VAR_FCGIFD         "_FCGIFD"
 #define HVML_VAR_SERVER         "_SERVER"
 #define HVML_VAR_GET            "_GET"
 #define HVML_VAR_POST           "_POST"
