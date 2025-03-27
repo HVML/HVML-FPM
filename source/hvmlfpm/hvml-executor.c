@@ -134,7 +134,6 @@ done:
 }
 
 struct request_info {
-    purc_variant_t fcgifd;
     purc_variant_t server;
     purc_variant_t get;
     purc_variant_t post;
@@ -332,9 +331,6 @@ failed:
 
 static int release_request(struct request_info *info)
 {
-    if (info->fcgifd) {
-        purc_variant_unref(info->fcgifd);
-    }
 
     if (info->server) {
         purc_variant_unref(info->server);
@@ -366,8 +362,6 @@ static int release_request(struct request_info *info)
 
 static int make_request(struct request_info *info)
 {
-    info->fcgifd = purc_variant_make_longint(fileno(stdout));
-
     info->server = purc_variant_make_object_0();
 
     static struct var_type {
@@ -484,8 +478,8 @@ static int make_request(struct request_info *info)
         { "SERVER_ADMIN", VT_STRING },
     };
 
+    purc_variant_t tmp = PURC_VARIANT_INVALID;
     for (size_t i = 0; i < PCA_TABLESIZE(meta_vars); i++) {
-        purc_variant_t tmp = PURC_VARIANT_INVALID;
 
         const char *value = getenv(meta_vars[i].name);
         if (value) {
@@ -521,6 +515,21 @@ static int make_request(struct request_info *info)
                         meta_vars[i].name);
                 goto failed;
             }
+        }
+    }
+
+    tmp = purc_variant_make_longint(fileno(stdout));
+    if (tmp == PURC_VARIANT_INVALID) {
+        HFLOG_ERROR("Failed when making a ulong 0 variant for %s\n", "FCGIFD");
+        goto failed;
+    }
+    else {
+        bool success = purc_variant_object_set_by_static_ckey(info->server,
+                "FCGIFD", tmp);
+        purc_variant_unref(tmp);
+        if (!success) {
+            HFLOG_ERROR("Failed when making a property for %s\n", "FCGIFD");
+            goto failed;
         }
     }
 
@@ -828,16 +837,6 @@ int hvml_executor(const char *app, const char *init_script,
             HFLOG_ERROR("Failed to schedule a new vDOM: %s\n",
                     purc_get_error_message(purc_get_last_error()));
             send_resp(500);
-            ret = EXIT_RETRY;
-            break;
-        }
-
-        /* bind _FCGIFD */
-        if (!purc_coroutine_bind_variable(cor, HVML_VAR_FCGIFD,
-                    request_info.fcgifd)) {
-            send_resp(500);
-            HFLOG_ERROR("Failed to bind " HVML_VAR_FCGIFD ": %s\n",
-                    purc_get_error_message(purc_get_last_error()));
             ret = EXIT_RETRY;
             break;
         }
