@@ -537,6 +537,7 @@ static int make_request(struct request_info *info)
         }
     }
 
+#if 0
     tmp = purc_variant_make_longint(fileno(stdout));
     if (tmp == PURC_VARIANT_INVALID) {
         HFLOG_ERROR("Failed when making a ulong 0 variant for %s\n", "FCGIFD");
@@ -551,6 +552,7 @@ static int make_request(struct request_info *info)
             goto failed;
         }
     }
+#endif
 
     const char *method =
         purc_variant_get_string_const(
