@@ -91,11 +91,12 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                     const unsigned char *content;
                     size_t nr_bytes;
                     content  = purc_variant_get_bytes_const(item, &nr_bytes);
-                    if (purc_variant_get_string_const(item) && nr_bytes > 0) {
-                        nr_bytes--;
-                    }
 
                     if (content && nr_bytes > 0) {
+                        if (purc_variant_get_string_const(item)) {
+                            nr_bytes--;
+                        }
+                        HFLOG_INFO("Writing content: %s\n", content);
                         fwrite((void *)content, nr_bytes, 1, stdout);
                     }
                     else {
