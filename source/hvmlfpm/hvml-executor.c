@@ -96,7 +96,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                         if (purc_variant_get_string_const(item)) {
                             nr_bytes--;
                         }
-                        HFLOG_INFO("Writing content: %s\n", content);
+                        HFLOG_INFO("Writing content (%zd)\n", nr_bytes);
                         fwrite((void *)content, nr_bytes, 1, stdout);
                     }
                     else {
