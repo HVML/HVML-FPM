@@ -68,7 +68,6 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                 goto done;
             }
 
-            fprintf(stdout, "HTTP/1.1 200 OK\r\n");
             struct purc_cor_exit_info *exit_info = data;
             if (purc_document_type(exit_info->doc) == PCDOC_K_TYPE_HTML) {
                 fprintf(stdout, "Content-Type: text/html\r\n\r\n");
@@ -109,7 +108,6 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                     purc_atom_to_string(term_info->except));
         }
 
-        fprintf(stdout, "HTTP/1.1 500 Internal Server Error\r\n");
         if (purc_document_type(term_info->doc) == PCDOC_K_TYPE_HTML) {
             fprintf(stdout, "Content-Type: text/html\r\n\r\n");
 
@@ -751,10 +749,12 @@ static void send_resp(int status_code)
 {
     switch (status_code) {
     case 400:
-        fprintf(stdout, "HTTP/1.1 400 Bad Request\r\n");
+        fprintf(stdout, "Content-Type: text/html\r\n\r\n");
+        fprintf(stdout, "<html><body><h1>Bad Request</h1></body></html>");
         break;
     case 500:
-        fprintf(stdout, "HTTP/1.1 500 Internal Server Error\r\n");
+        fprintf(stdout, "Content-Type: text/html\r\n\r\n");
+        fprintf(stdout, "<html><body><h1>Internal Server Error</h1></body></html>");
         break;
     }
 }
