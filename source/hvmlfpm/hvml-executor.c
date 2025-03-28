@@ -59,6 +59,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                 (uintptr_t *)(void *)&runner_info, NULL);
         assert(runner_info);
 
+        size_t sz;
         if (runner_info->verbose) {
             if (cor == runner_info->main_crtn) {
                 HFLOG_INFO("The main coroutine exited.\n");
@@ -80,13 +81,32 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                 purc_document_serialize_contents_to_stream(exit_info->doc,
                         opt, runner_info->dump_stm);
             }
-            else if (!purc_variant_is_undefined(exit_info->result)) {
+            else if (purc_variant_array_size(exit_info->result, &sz) &&
+                    sz > 0) {
+                /* TODO: we may need a new document type */
+                for (size_t i = 0; i < sz; i++) {
+                    purc_variant_t item;
+                    item = purc_variant_array_get(exit_info->result, i);
+
+                    const unsigned char *content;
+                    size_t nr_bytes;
+                    content  = purc_variant_get_bytes_const(item, &nr_bytes);
+                    if (purc_variant_get_string_const(item) && nr_bytes > 0) {
+                        nr_bytes--;
+                    }
+
+                    if (content && nr_bytes > 0) {
+                        fwrite((void *)content, nr_bytes, 1, stdout);
+                    }
+                    else {
+                        HFLOG_WARN("Item is not a string or binary sequence.\n");
+                    }
+                }
+            }
+            else {
                 fprintf(stdout, "Content-Type: application/json\r\n\r\n");
                 purc_variant_serialize(exit_info->result,
                         runner_info->dump_stm, 0, MY_VRT_OPTS, NULL);
-            }
-            else {
-                /* The HVML script takes the control of the response */
             }
         }
     }
