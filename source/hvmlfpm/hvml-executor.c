@@ -497,8 +497,8 @@ static int make_request(struct request_info *info)
         { "SERVER_ADMIN", VT_STRING },
     };
 
-    purc_variant_t tmp = PURC_VARIANT_INVALID;
     for (size_t i = 0; i < PCA_TABLESIZE(meta_vars); i++) {
+        purc_variant_t tmp = PURC_VARIANT_INVALID;
 
         const char *value = getenv(meta_vars[i].name);
         if (value) {

@@ -300,6 +300,45 @@ bind_socket(const char *addr, unsigned short port, const char *unixsocket,
     return fcgi_fd;
 }
 
+static void call_executor(const char *hvmlApp, const char *initScript,
+        const char *scriptQuery, int fcgi_fd, int max_executions)
+{
+    int max_fd = 0;
+    int i = 0;
+
+    if (fcgi_fd != FCGI_LISTENSOCK_FILENO) {
+        close(FCGI_LISTENSOCK_FILENO);
+        dup2(fcgi_fd, FCGI_LISTENSOCK_FILENO);
+        close(fcgi_fd);
+    }
+
+    /* loose control terminal */
+    setsid();
+
+    max_fd = open("/dev/null", O_RDWR);
+    if (-1 != max_fd) {
+        if (max_fd != STDOUT_FILENO)
+            dup2(max_fd, STDOUT_FILENO);
+        if (max_fd != STDERR_FILENO)
+            dup2(max_fd, STDERR_FILENO);
+        if (max_fd != STDOUT_FILENO && max_fd != STDERR_FILENO)
+            close(max_fd);
+    } else {
+        syslog(LOG_ERR, "hvml-fpm: couldn't open and redirect "
+                "stdout/stderr to '/dev/null': %s\n",
+                strerror(errno));
+    }
+
+    /* we don't need the client socket */
+    for (i = 3; i < max_fd; i++) {
+        if (i != FCGI_LISTENSOCK_FILENO)
+            close(i);
+    }
+
+    exit(hvml_executor(hvmlApp, initScript, scriptQuery,
+                max_executions, true));
+}
+
 static int
 fcgi_spawn_connection(const char *hvmlApp, const char *initScript,
         const char *scriptQuery, int fcgi_fd, int fork_count, int pid_fd,
@@ -310,109 +349,84 @@ fcgi_spawn_connection(const char *hvmlApp, const char *initScript,
 
     pid_t child;
 
-    while (fork_count-- > 0) {
+    if (fork_count > 0) {
+        while (fork_count-- > 0) {
 
-        // syslog(LOG_INFO, "calling fork(): %d\n", getpid());
-        child = fork();
+            // syslog(LOG_INFO, "calling fork(): %d\n", getpid());
+            child = fork();
 
-        if (child == 0) {
-            int max_fd = 0;
-            int i = 0;
-
-            if (fcgi_fd != FCGI_LISTENSOCK_FILENO) {
-                close(FCGI_LISTENSOCK_FILENO);
-                dup2(fcgi_fd, FCGI_LISTENSOCK_FILENO);
-                close(fcgi_fd);
+            if (child == 0) {
+                call_executor(hvmlApp, initScript, scriptQuery, fcgi_fd,
+                        max_executions);
             }
+            else if (child > 0) {
+                /* father */
 
-            /* loose control terminal */
-            setsid();
+                /* wait a moment */
+                select(0, NULL, NULL, NULL, &tv);
 
-            max_fd = open("/dev/null", O_RDWR);
-            if (-1 != max_fd) {
-                if (max_fd != STDOUT_FILENO)
-                    dup2(max_fd, STDOUT_FILENO);
-                if (max_fd != STDERR_FILENO)
-                    dup2(max_fd, STDERR_FILENO);
-                if (max_fd != STDOUT_FILENO && max_fd != STDERR_FILENO)
-                    close(max_fd);
-            } else {
-                syslog(LOG_ERR, "hvml-fpm: couldn't open and redirect "
-                        "stdout/stderr to '/dev/null': %s\n",
-                        strerror(errno));
-            }
+                switch (waitpid(child, &status, WNOHANG)) {
+                case 0:
+                    syslog(LOG_INFO, "child spawned successfully: PID: %d\n",
+                            child);
 
-            /* we don't need the client socket */
-            for (i = 3; i < max_fd; i++) {
-                if (i != FCGI_LISTENSOCK_FILENO)
-                    close(i);
-            }
-
-            exit(hvml_executor(hvmlApp, initScript, scriptQuery,
-                        max_executions, true));
-        }
-        else if (child > 0) {
-            /* father */
-
-            /* wait a moment */
-            select(0, NULL, NULL, NULL, &tv);
-
-            switch (waitpid(child, &status, WNOHANG)) {
-            case 0:
-                syslog(LOG_INFO, "child spawned successfully: PID: %d\n",
-                        child);
-
-                /* write pid file */
-                if (-1 != pid_fd) {
-                    char pidbuf[32];
-                    snprintf(pidbuf, sizeof(pidbuf), "%d\n", child);
-                    if (-1 == write_all(pid_fd, pidbuf, strlen(pidbuf))) {
-                        syslog(LOG_WARNING, "writing pid file failed: %s\n",
-                                strerror(errno));
-                        close(pid_fd);
-                        pid_fd = -1;
-                    }
-                    /* avoid eol for the last one
-                    if (-1 != pid_fd && fork_count != 0) {
-                        if (-1 == write_all(pid_fd, "\n", 1)) {
+                    /* write pid file */
+                    if (-1 != pid_fd) {
+                        char pidbuf[32];
+                        snprintf(pidbuf, sizeof(pidbuf), "%d\n", child);
+                        if (-1 == write_all(pid_fd, pidbuf, strlen(pidbuf))) {
                             syslog(LOG_WARNING, "writing pid file failed: %s\n",
                                     strerror(errno));
                             close(pid_fd);
                             pid_fd = -1;
                         }
-                    }*/
-                }
-                break;
+                        /* avoid eol for the last one
+                        if (-1 != pid_fd && fork_count != 0) {
+                            if (-1 == write_all(pid_fd, "\n", 1)) {
+                                syslog(LOG_WARNING, "writing pid file failed: %s\n",
+                                        strerror(errno));
+                                close(pid_fd);
+                                pid_fd = -1;
+                            }
+                        }*/
+                    }
+                    break;
 
-            case -1:
-                syslog(LOG_ERR, "failed waitpid(): %s\n", strerror(errno));
-                break;
+                case -1:
+                    syslog(LOG_ERR, "failed waitpid(): %s\n", strerror(errno));
+                    break;
 
-            default:
-                if (WIFEXITED(status)) {
-                    syslog(LOG_WARNING, "child exited with: %d\n",
-                        WEXITSTATUS(status));
-                    rc = WEXITSTATUS(status);
-                }
-                else if (WIFSIGNALED(status)) {
-                    syslog(LOG_WARNING, "child signaled: %d\n",
-                        WTERMSIG(status));
-                    rc = 1;
-                }
-                else {
-                    syslog(LOG_WARNING, "child died somehow: exit status = %d\n",
-                            status);
-                    rc = status;
-                }
+                default:
+                    if (WIFEXITED(status)) {
+                        syslog(LOG_WARNING, "child exited with: %d\n",
+                            WEXITSTATUS(status));
+                        rc = WEXITSTATUS(status);
+                    }
+                    else if (WIFSIGNALED(status)) {
+                        syslog(LOG_WARNING, "child signaled: %d\n",
+                            WTERMSIG(status));
+                        rc = 1;
+                    }
+                    else {
+                        syslog(LOG_WARNING, "child died somehow: exit status = %d\n",
+                                status);
+                        rc = status;
+                    }
 
-                break;
-            } /* switch waitpid() */
+                    break;
+                } /* switch waitpid() */
+            }
+            else  {
+                /* error */
+                syslog(LOG_ERR, "fork failed: %s\n", strerror(errno));
+                rc = -1;
+            }
         }
-        else  {
-            /* error */
-            syslog(LOG_ERR, "fork failed: %s\n", strerror(errno));
-            rc = -1;
-        }
+    }
+    else {
+        /* no fork */
+        call_executor(hvmlApp, initScript, scriptQuery, fcgi_fd,
+                max_executions);
     }
 
     return rc;
@@ -563,7 +577,7 @@ int main(int argc, char **argv)
     char *endptr = NULL;
     unsigned short port = 0;
     mode_t sockmode =  (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) & ~read_umask();
-    int fork_count = 1;
+    int fork_count = 0;
     int max_executions = 1000;
     int backlog = 1024;
     int i_am_root, o;
@@ -780,12 +794,14 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    fprintf(stdout, "hvml-fpm: initialization succeed; "
-            "going to be a daemon...\n");
-    if (daemonize()) {
-        fprintf(stderr, "hvml-fpm: failed daemonize(): %s\n",
-                strerror(errno));
-        return -1;
+    if (fork_count > 0) {
+        fprintf(stdout, "hvml-fpm: initialization succeed; "
+                "going to be a daemon...\n");
+        if (daemonize()) {
+            fprintf(stderr, "hvml-fpm: failed daemonize(): %s\n",
+                    strerror(errno));
+            return -1;
+        }
     }
 
     int rc;
