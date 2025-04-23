@@ -17,7 +17,7 @@ This program uses source code from
 $ hvmlfpm -h
 Usage: hvmlfpm [options]
 
-hvml-fpm v0.0.2 (ipv6) - the FastCGI process manager for HVML
+hvml-fpm v0.0.4 (ipv6) - the FastCGI process manager for HVML
 
 Options:
  -A <app_name>     HVML app name
