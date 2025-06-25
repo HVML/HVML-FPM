@@ -495,6 +495,9 @@ static int make_request(struct request_info *info)
 
         // The email address for your server's webmaster
         { "SERVER_ADMIN", VT_STRING },
+
+        // The Authorization
+        { "HTTP_AUTHORIZATION", VT_STRING },
     };
 
     for (size_t i = 0; i < PCA_TABLESIZE(meta_vars); i++) {
