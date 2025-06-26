@@ -78,7 +78,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
                 opt |= PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
                 opt |= PCDOC_SERIALIZE_OPT_IGNORE_C0CTRLS;
 
-                purc_document_serialize_contents_to_stream(exit_info->doc,
+                pcdoc_serialize_fragment_to_stream(exit_info->doc, NULL,
                         opt, runner_info->dump_stm);
             }
             else if (purc_variant_array_size(exit_info->result, &sz) &&
@@ -137,7 +137,7 @@ static int prog_cond_handler(purc_cond_k event, purc_coroutine_t cor,
             opt |= PCDOC_SERIALIZE_OPT_FULL_DOCTYPE;
             opt |= PCDOC_SERIALIZE_OPT_IGNORE_C0CTRLS;
 
-            purc_document_serialize_contents_to_stream(term_info->doc,
+            pcdoc_serialize_fragment_to_stream(term_info->doc, NULL,
                     opt, runner_info->dump_stm);
         }
 
