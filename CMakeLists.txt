@@ -134,7 +134,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE True)
 #------------------------------------------------------------------------------
 include(GlobalCommon)
 
-SET_PROJECT_VERSION(0 0 4)
+SET_PROJECT_VERSION(0 0 6)
 set(HVMLFPM_API_VERSION 0.0)
 
 add_subdirectory(source)
